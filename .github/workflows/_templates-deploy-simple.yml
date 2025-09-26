@@ -61,7 +61,7 @@ on:
         description: 'Scale concurrent request'
         required: false
         type: string
-        default: '1'
+        default: '30'
       AZURE_VAULT_NAME:
         description: 'Azure vault name'
         required: false
