@@ -68,8 +68,10 @@ jobs:
       PROJECT_NAME: '__NOM_DE_TON_PROJET__'
       # d'autres paramètres sont disponible. Pour cela réfère toi à https://github.com/Numbr-Tech/ci-tools/blob/main/.github/workflows/_templates-deploy-simple.yml
     secrets:
-      AZURE_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }} # demande à Gregory CADICI de le setter dans les settings de ton repo github 
-      AZURE_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
-      AZURE_SUBSCRIPTION_ID_PPROD: ${{ secrets.AZURE_SUBSCRIPTION_ID_PPROD }}
-      AZURE_SUBSCRIPTION_ID: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+      secrets: inherit
+      # ou de manière explicite
+      # AZURE_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }} # demande à Gregory CADICI de le setter dans les settings de ton repo github 
+      # AZURE_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
+      # AZURE_SUBSCRIPTION_ID_PPROD: ${{ secrets.AZURE_SUBSCRIPTION_ID_PPROD }}
+      # AZURE_SUBSCRIPTION_ID: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
 ```

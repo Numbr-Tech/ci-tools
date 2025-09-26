@@ -5,8 +5,9 @@ on:
     inputs:
       PROJECT_NAME:
         description: 'Project name'
-        required: true
+        required: false
         type: string
+        default: '${{ github.repository_name }}'
       AZURE_LOCATION:
         description: 'Azure location'
         required: false
@@ -74,8 +75,9 @@ on:
         default: '${{ github.sha }}'
       INFRA_ENV:
         description: 'Infra environment'
-        required: true
+        required: false
         type: string
+        default: "${{ github.ref_name == 'main' && 'production' || 'staging' }}"
       DEBUG:
         description: 'Enable debug mode (verbose logs)'
         required: false

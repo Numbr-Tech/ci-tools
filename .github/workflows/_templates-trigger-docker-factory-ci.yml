@@ -9,8 +9,9 @@ on:
         type: string
       PROJECT_NAME:
         description: 'Project name'
-        required: true
+        required: false
         type: string
+        default: '${{ github.repository_name }}'
       DEBUG:
         description: 'Enable debug mode (verbose logs)'
         required: false

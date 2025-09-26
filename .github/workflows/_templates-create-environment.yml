@@ -20,12 +20,14 @@ on:
         default: ''
       INFRA_ENV:
         description: ''
-        required: true
+        required: false
         type: string
+        default: "${{ github.ref_name == 'main' && 'production' || 'staging' }}"
       PROJECT_NAME:
         description: ''
-        required: true
+        required: false
         type: string
+        default: '${{ github.repository_name }}'
     secrets:
       AZURE_CLIENT_ID:
         description: 'azure client id'
