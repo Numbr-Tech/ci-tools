@@ -3,6 +3,10 @@ name: Create Environment
 on:
   workflow_call:
     inputs:
+      PROJECT_NAME:
+        description: ''
+        required: true
+        type: string
       AZURE_LOCATION:
         description: ''
         required: false
@@ -23,11 +27,6 @@ on:
         required: false
         type: string
         default: "${{ github.ref_name == 'main' && 'production' || 'staging' }}"
-      PROJECT_NAME:
-        description: ''
-        required: false
-        type: string
-        default: '${{ github.repository_name }}'
     secrets:
       AZURE_CLIENT_ID:
         description: 'azure client id'

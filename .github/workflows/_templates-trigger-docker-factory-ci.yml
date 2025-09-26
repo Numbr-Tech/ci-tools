@@ -3,15 +3,14 @@ name: Trigger Docker Factory CI
 on:
   workflow_call:
     inputs:
+      PROJECT_NAME:
+        description: 'Project name'
+        required: true
+        type: string
       DOCKER_FACTORY_BRANCH_NAME:
         description: 'Docker factory branch name'
         required: true
         type: string
-      PROJECT_NAME:
-        description: 'Project name'
-        required: false
-        type: string
-        default: '${{ github.repository_name }}'
       DEBUG:
         description: 'Enable debug mode (verbose logs)'
         required: false

@@ -5,9 +5,8 @@ on:
     inputs:
       PROJECT_NAME:
         description: 'Project name'
-        required: false
+        required: true
         type: string
-        default: '${{ github.repository_name }}'
       AZURE_LOCATION:
         description: 'Azure location'
         required: false

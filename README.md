@@ -65,8 +65,8 @@ jobs:
   deploy:
     uses: Numbr-Tech/ci-tools/.github/workflows/_templates-deploy-simple.yml@v1
     with:
-      PROJECT_NAME: '__NOM_DE_TON_PROJET__'
-      # d'autres paramètres sont disponible. Pour cela réfère toi à https://github.com/Numbr-Tech/ci-tools/blob/main/.github/workflows/_templates-deploy-simple.yml
+      PROJECT_NAME: le-nom-de-votre-projet
+      # vous pouvez surcharger les valeurs par defaut des paramètre définis ici https://github.com/Numbr-Tech/ci-tools/blob/main/.github/workflows/_templates-deploy-simple.yml
     secrets:
       secrets: inherit
       # ou de manière explicite
