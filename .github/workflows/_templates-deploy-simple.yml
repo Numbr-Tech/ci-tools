@@ -170,7 +170,9 @@ jobs:
               -e "s|__AZURE_VAULT_NAME__|${{ inputs.AZURE_VAULT_NAME }}|g" \
               -e "s|__INFRA_ENV__|${{ inputs.INFRA_ENV }}|g" \
               Infra/containerapp.yaml.tpl > Infra/containerapp.yaml
-          cat Infra/containerapp.yaml
+          if [ "${{ inputs.DEBUG }}" = "true" ]; then
+            cat Infra/containerapp.yaml
+          fi
 
       - name: Upload containerapp.yaml artifact
         uses: actions/upload-artifact@v4
