@@ -41,12 +41,12 @@ on:
         description: 'Resource CPU'
         required: false
         type: string
-        default: '1'
+        default: '1.0'
       RESOURCE_MEMORY:
         description: 'Resource memory'
         required: false
         type: string
-        default: '1Gi'
+        default: '1.0Gi'
       SCALE_MIN_REPLICATS:
         description: 'Scale min replicats'
         required: false
