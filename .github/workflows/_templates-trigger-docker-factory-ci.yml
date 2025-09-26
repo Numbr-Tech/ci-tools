@@ -3,12 +3,12 @@ name: Trigger Docker Factory CI
 on:
   workflow_call:
     inputs:
-      DOCKER_FACTORY_BRANCH_NAME:
-        description: 'Docker factory branch name'
-        required: true
-        type: string
       PROJECT_NAME:
         description: 'Project name'
+        required: true
+        type: string
+      DOCKER_FACTORY_BRANCH_NAME:
+        description: 'Docker factory branch name'
         required: true
         type: string
       DEBUG:
