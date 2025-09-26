@@ -67,8 +67,7 @@ jobs:
     with:
       PROJECT_NAME: le-nom-de-votre-projet
       # vous pouvez surcharger les valeurs par defaut des paramètre définis ici https://github.com/Numbr-Tech/ci-tools/blob/main/.github/workflows/_templates-deploy-simple.yml
-    secrets:
-      secrets: inherit
+    secrets: inherit
       # ou de manière explicite
       # AZURE_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }} # demande à Gregory CADICI de le setter dans les settings de ton repo github 
       # AZURE_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
