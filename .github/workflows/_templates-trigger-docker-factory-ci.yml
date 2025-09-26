@@ -1,0 +1,219 @@
+name: Trigger Docker Factory CI
+
+on:
+  workflow_call:
+    inputs:
+      DOCKER_FACTORY_BRANCH_NAME:
+        description: 'Docker factory branch name'
+        required: true
+        type: string
+      PROJECT_NAME:
+        description: 'Project name'
+        required: true
+        type: string
+      DEBUG:
+        description: 'Enable debug mode (verbose logs)'
+        required: false
+        type: boolean
+        default: false
+    secrets:
+      GH_APP_SECRET:
+        description: 'GitHub App private key'
+        required: true
+
+jobs:
+  trigger-docker-factory-ci:
+    runs-on: ubuntu-latest
+    env:
+      DOCKER_FACTORY_URL: https://api.github.com/repos/Numbr-Tech/docker-factory/actions/workflows/${{ inputs.PROJECT_NAME }}.yml
+    outputs:
+      build-success: ${{ steps.check-status.outputs.success }}
+    steps: 
+      - name: Generate JWT
+        id: generate_jwt
+        run: |
+          APP_ID=1684635
+          PRIVATE_KEY="${{ secrets.GH_APP_SECRET }}"
+          IAT=$(date +%s)
+          EXP=$((IAT + 540))
+          HEADER='{"alg":"RS256","typ":"JWT"}'
+          PAYLOAD="{\"iat\":$IAT,\"exp\":$EXP,\"iss\":$APP_ID}"
+          base64url() { openssl base64 -A | tr '+/' '-_' | tr -d '='; }
+          ENCODED_HEADER=$(echo -n "$HEADER" | base64url)
+          ENCODED_PAYLOAD=$(echo -n "$PAYLOAD" | base64url)
+          SIGNATURE=$(echo -n "${ENCODED_HEADER}.${ENCODED_PAYLOAD}" | \
+            openssl dgst -sha256 -sign <(echo "$PRIVATE_KEY") | \
+            base64url)
+          JWT="${ENCODED_HEADER}.${ENCODED_PAYLOAD}.${SIGNATURE}"
+          echo "jwt=$JWT" >> $GITHUB_OUTPUT
+
+      - name: Get Installation Token
+        id: get_token
+        run: |
+          INSTALLATION_ID=78028141
+          TOKEN=$(curl -s -X POST \
+            -H "Authorization: Bearer ${{ steps.generate_jwt.outputs.jwt }}" \
+            -H "Accept: application/vnd.github+json" \
+            https://api.github.com/app/installations/$INSTALLATION_ID/access_tokens | jq -r .token)
+          echo "token=$TOKEN" >> $GITHUB_OUTPUT
+
+      - name: Trigger Docker Factory Workflow
+        id: trigger
+        run: |
+          # Déclencher le workflow
+          RESPONSE=$(curl -s -X POST \
+            -H "Accept: application/vnd.github+json" \
+            -H "Authorization: Bearer ${{ steps.get_token.outputs.token }}" \
+            -H "X-GitHub-Api-Version: 2022-11-28" \
+            ${{ env.DOCKER_FACTORY_URL }}/dispatches \
+            -d '{"ref":"${{ inputs.DOCKER_FACTORY_BRANCH_NAME }}"}')
+
+          echo "🚀 Triggered workflow dispatch"
+
+          # Attendre 30 secondes pour que le workflow démarre
+          echo "⏳ Waiting 30 seconds for workflow to start..."
+          sleep 30
+
+          # Récupérer l'ID du dernier workflow run avec retry
+          MAX_RETRIES=6
+          RETRY_COUNT=0
+          RUN_ID=""
+          WAIT_TIME=20
+
+          while [ $RETRY_COUNT -lt $MAX_RETRIES ] && [ -z "$RUN_ID" ]; do
+            echo "🔍 Attempting to get workflow run ID (attempt $((RETRY_COUNT + 1)))"
+
+            # Essayer d'abord avec status=in_progress
+            RESPONSE=$(curl -s \
+              -H "Accept: application/vnd.github+json" \
+              -H "Authorization: Bearer ${{ steps.get_token.outputs.token }}" \
+              -H "X-GitHub-Api-Version: 2022-11-28" \
+              "${{ env.DOCKER_FACTORY_URL }}/runs?branch=${{ inputs.DOCKER_FACTORY_BRANCH_NAME }}&status=in_progress&per_page=1")
+
+            TOTAL_COUNT=$(echo "${RESPONSE}" | jq -r '.total_count // 0')
+            if [ "$TOTAL_COUNT" -eq 0 ]; then
+              # Si aucun run en cours, essayer sans filtre de status
+              RESPONSE=$(curl -s \
+                -H "Accept: application/vnd.github+json" \
+                -H "Authorization: Bearer ${{ steps.get_token.outputs.token }}" \
+                -H "X-GitHub-Api-Version: 2022-11-28" \
+                "${{ env.DOCKER_FACTORY_URL }}/runs?branch=${{ inputs.DOCKER_FACTORY_BRANCH_NAME }}&per_page=1")
+            fi  
+
+            echo "📊 API Response: ${RESPONSE}"
+
+            TOTAL_COUNT=$(echo "${RESPONSE}" | jq -r '.total_count // 0')
+            if [ "$TOTAL_COUNT" -gt 0 ]; then
+              RUN_ID=$(echo "${RESPONSE}" | jq -r '.workflow_runs[0].id // empty')
+              if [ ! -z "$RUN_ID" ] && [ "$RUN_ID" != "null" ]; then
+                break
+              fi
+            fi
+
+            RETRY_COUNT=$((RETRY_COUNT + 1))
+            if [ $RETRY_COUNT -lt $MAX_RETRIES ]; then
+              echo "⏳ Waiting ${WAIT_TIME} seconds before retry..."
+              sleep $WAIT_TIME
+              # Augmenter progressivement le temps d'attente
+              WAIT_TIME=$((WAIT_TIME + 10))
+            fi
+          done
+
+          if [ -z "$RUN_ID" ] || [ "$RUN_ID" = "null" ]; then
+            echo "❌ Failed to get workflow run ID after $MAX_RETRIES attempts"
+            echo "📝 Last API response:"
+            echo "${RESPONSE}" | jq '.'
+            exit 1
+          fi
+
+          echo "run_id=${RUN_ID}" >> $GITHUB_OUTPUT
+          echo "🚀 Triggered workflow run: ${RUN_ID}"
+
+      - name: Check workflow status
+        id: check-status
+        run: |
+          # Vérifier que le RUN_ID existe
+          RUN_ID="${{ steps.trigger.outputs.run_id }}"
+          if [ -z "$RUN_ID" ] || [ "$RUN_ID" = "null" ]; then
+            echo "❌ No valid workflow run ID found"
+            exit 1
+          fi
+
+          echo "🔍 Monitoring workflow run: ${RUN_ID}"
+
+          # Fonction pour récupérer le statut du workflow
+          check_workflow_status() {
+            local RUN_ID=$1
+            echo "🔍 Checking workflow status for run ID: ${RUN_ID}"
+
+            RESPONSE=$(curl -s \
+              -H "Accept: application/vnd.github+json" \
+              -H "Authorization: Bearer ${{ steps.get_token.outputs.token }}" \
+              -H "X-GitHub-Api-Version: 2022-11-28" \
+              "https://api.github.com/repos/Numbr-Tech/docker-factory/actions/runs/${RUN_ID}")
+
+            if [ "${{ inputs.DEBUG }}" = "true" ]; then
+              echo "📊 Raw response: ${RESPONSE}"
+            fi
+
+            # Vérifier si la réponse contient une erreur
+            ERROR_MESSAGE=$(echo "${RESPONSE}" | jq -r '.message // empty')
+            if [ ! -z "$ERROR_MESSAGE" ]; then
+              echo "❌ API Error: ${ERROR_MESSAGE}"
+              return 1
+            fi
+
+            CURRENT_STATUS=$(echo "${RESPONSE}" | jq -r '.status')
+            echo "📋 Current status: ${CURRENT_STATUS}"
+
+            if [ "$CURRENT_STATUS" != "completed" ]; then
+              echo "⏳ Workflow is still ${CURRENT_STATUS}"
+              return 2
+            fi
+
+            CONCLUSION=$(echo "${RESPONSE}" | jq -r '.conclusion')
+            echo "🏁 Workflow conclusion: ${CONCLUSION}"
+
+            if [ "$CONCLUSION" = "success" ]; then
+              echo "success=true" >> $GITHUB_OUTPUT
+              echo "✅ Workflow completed successfully!"
+              return 0
+            fi
+
+            echo "success=false" >> $GITHUB_OUTPUT
+            echo "❌ Workflow failed with conclusion: ${CONCLUSION}"
+            echo "📝 Additional details:"
+            echo "${RESPONSE}" | jq -r '.jobs[] | select(.conclusion != "success") | "  - Job: \(.name), Status: \(.conclusion)"'
+            return 1
+          }
+
+          STARTTIME=$(date +%s)
+          WAIT_TIME=20
+          TIME=0
+          while ! check_workflow_status "$RUN_ID" && [ $TIME -lt 600 ]; do
+              TIME=$(($(date +%s) - $STARTTIME));
+              echo "⏳ retry after ${WAIT_TIME} secondes (spend time $TIME seconds)" 
+              sleep ${WAIT_TIME}
+          done
+
+          check_workflow_status "$RUN_ID"
+          STATUS=$?
+
+          if [[ $STATUS -eq 0 ]]; then
+            exit 0
+          elif [[ $STATUS -eq 1 ]]; then
+            exit 1
+          fi
+
+          echo "⚠️ Workflow timeout"
+          echo "📊 Final status check:"
+          curl -s \
+            -H "Accept: application/vnd.github+json" \
+            -H "Authorization: Bearer ${{ steps.get_token.outputs.token }}" \
+            -H "X-GitHub-Api-Version: 2022-11-28" \
+            "https://api.github.com/repos/Numbr-Tech/docker-factory/actions/runs/${RUN_ID}" \
+            | jq '{ status: .status, conclusion: .conclusion, created_at: .created_at, updated_at: .updated_at, jobs_url: .jobs_url }'
+
+          echo "success=false" >> $GITHUB_OUTPUT
+          echo "❌ Workflow did not complete in time"
+          exit 1
