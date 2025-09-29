@@ -36,7 +36,7 @@ on:
         description: 'Ingress external'
         required: false
         type: boolean
-        default: false
+        default: true
       RESOURCE_CPU:
         description: 'Resource CPU'
         required: false
