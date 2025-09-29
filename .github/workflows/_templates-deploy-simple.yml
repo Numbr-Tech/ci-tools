@@ -31,7 +31,7 @@ on:
         description: 'Ingress port'
         required: false
         type: string
-        default: '8000'
+        default: '80'
       INGRESS_EXTERNAL:
         description: 'Ingress external'
         required: false
