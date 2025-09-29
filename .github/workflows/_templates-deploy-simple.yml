@@ -151,7 +151,6 @@ jobs:
 
       - name: Build containerapp.yaml
         run: |
-          ls -la Infra
           sed -e "s|__PROJECT_NAME__|${{ inputs.PROJECT_NAME }}|g" \
               -e "s|__AZURE_LOCATION__|${{ inputs.AZURE_LOCATION }}|g" \
               -e "s|__AZURE_SUBSCRIPTION_ID__|${{ env.AZURE_SUBSCRIPTION_ID }}|g" \
