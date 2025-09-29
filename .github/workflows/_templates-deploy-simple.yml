@@ -41,12 +41,12 @@ on:
         description: 'Resource CPU'
         required: false
         type: string
-        default: '1'
+        default: '0.5'
       RESOURCE_MEMORY:
         description: 'Resource memory'
         required: false
         type: string
-        default: '1Gi'
+        default: '1.0Gi'
       SCALE_MIN_REPLICATS:
         description: 'Scale min replicats'
         required: false
@@ -61,7 +61,7 @@ on:
         description: 'Scale concurrent request'
         required: false
         type: string
-        default: '1'
+        default: '30'
       AZURE_VAULT_NAME:
         description: 'Azure vault name'
         required: false
@@ -74,8 +74,9 @@ on:
         default: '${{ github.sha }}'
       INFRA_ENV:
         description: 'Infra environment'
-        required: true
+        required: false
         type: string
+        default: "${{ github.ref_name == 'main' && 'production' || 'staging' }}"
       DEBUG:
         description: 'Enable debug mode (verbose logs)'
         required: false
@@ -169,13 +170,9 @@ jobs:
               -e "s|__AZURE_VAULT_NAME__|${{ inputs.AZURE_VAULT_NAME }}|g" \
               -e "s|__INFRA_ENV__|${{ inputs.INFRA_ENV }}|g" \
               Infra/containerapp.yaml.tpl > Infra/containerapp.yaml
-          cat Infra/containerapp.yaml
-
-      - name: Upload containerapp.yaml artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: containerapp-yaml
-          path: Infra/containerapp.yaml
+          if [ "${{ inputs.DEBUG }}" = "true" ]; then
+            cat Infra/containerapp.yaml
+          fi
 
       - name: Deploy Container App
         uses: azure/container-apps-deploy-action@v2
