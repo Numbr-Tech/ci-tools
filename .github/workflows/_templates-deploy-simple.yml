@@ -89,8 +89,8 @@ on:
       AZURE_TENANT_ID:
         description: 'azure tenant id'
         required: true
-      AZURE_SUBSCRIPTION_ID:
-        description: 'azure subscription id'
+      AZURE_SUBSCRIPTION_ID_PROD:
+        description: 'azure subscription id prod'
         required: true
       AZURE_SUBSCRIPTION_ID_PPROD:
         description: 'azure subscription id pprod'
@@ -104,7 +104,7 @@ jobs:
       AZURE_REGISTRY_FQDN: ${{ inputs.INFRA_ENV == 'production' && 'nbtreg' || 'pprodnbtregistry-aucgecdkece6b5d7' }}.azurecr.io
       AZURE_CONTAINERAPP_ENVIRONMENT_NAME: ${{ inputs.PROJECT_NAME }}-${{ inputs.INFRA_ENV == 'production' && 'production' || 'staging' }}-workspace
       AZURE_RESOURCE_GROUP: rg-frc-${{ inputs.PROJECT_NAME }}
-      AZURE_SUBSCRIPTION_ID: ${{ inputs.INFRA_ENV == 'production' && secrets.AZURE_SUBSCRIPTION_ID || secrets.AZURE_SUBSCRIPTION_ID_PPROD }}
+      AZURE_SUBSCRIPTION_ID: ${{ inputs.INFRA_ENV == 'production' && secrets.AZURE_SUBSCRIPTION_ID_PROD || secrets.AZURE_SUBSCRIPTION_ID_PPROD }}
     permissions:
       id-token: write
       contents: read
