@@ -110,7 +110,7 @@ jobs:
       contents: read
     steps:
       - name: debug
-        if: inputs.DEBUG == 'true'
+        if: inputs.DEBUG == true
         run: |
             echo "AZURE_SUBSCRIPTION_ID: ${{ env.AZURE_SUBSCRIPTION_ID }}"
             echo "AZURE_RESOURCE_GROUP: ${{ env.AZURE_RESOURCE_GROUP }}"
