@@ -112,11 +112,17 @@ jobs:
       - name: debug
         if: inputs.DEBUG == true
         run: |
-            echo "AZURE_SUBSCRIPTION_ID: ${{ env.AZURE_SUBSCRIPTION_ID }}"
-            echo "AZURE_RESOURCE_GROUP: ${{ env.AZURE_RESOURCE_GROUP }}"
-            echo "AZURE_CONTAINERAPP_ENVIRONMENT_NAME: ${{ env.AZURE_CONTAINERAPP_ENVIRONMENT_NAME }}"
-            echo "AZURE_REGISTRY_FQDN: ${{ env.AZURE_REGISTRY_FQDN }}"
-            echo "AZURE_REGISTRY: ${{ env.AZURE_REGISTRY }}"
+            echo "========================"
+            echo "=        INPUTS        ="
+            echo "========================"
+            echo "DEBUG: ${{ inputs.DEBUG }}"
+            echo "PROJECT_NAME: ${{ inputs.PROJECT_NAME }}"
+            echo "INFRA_ENV: ${{ inputs.INFRA_ENV }}"
+            echo "AZURE_LOCATION: ${{ inputs.AZURE_LOCATION }}"
+            echo "AZURE_SHARED_RESOURCE_GROUP: ${{ inputs.AZURE_SHARED_RESOURCE_GROUP }}"
+            echo "AZURE_VNET_NAME: ${{ inputs.AZURE_VNET_NAME }}"
+            echo "AZURE_SUBNET_NAME: ${{ inputs.AZURE_SUBNET_NAME }}"
+            echo "AZURE_VAULT_NAME: ${{ inputs.AZURE_VAULT_NAME }}"
             echo "IMAGE_TAG: ${{ inputs.IMAGE_TAG }}"
             echo "INGRESS_PORT: ${{ inputs.INGRESS_PORT }}"
             echo "INGRESS_EXTERNAL: ${{ inputs.INGRESS_EXTERNAL }}"
@@ -125,9 +131,14 @@ jobs:
             echo "SCALE_MIN_REPLICATS: ${{ inputs.SCALE_MIN_REPLICATS }}"
             echo "SCALE_MAX_REPLICATS: ${{ inputs.SCALE_MAX_REPLICATS }}"
             echo "SCALE_CONCURRENT_REQUEST: ${{ inputs.SCALE_CONCURRENT_REQUEST }}"
-            echo "AZURE_VAULT_NAME: ${{ inputs.AZURE_VAULT_NAME }}"
-            echo "INFRA_ENV: ${{ inputs.INFRA_ENV }}"
-            echo "DEBUG: ${{ inputs.DEBUG }}"
+            echo "========================"
+            echo "=        ENV        ="
+            echo "========================"
+            echo "AZURE_REGISTRY: ${{ env.AZURE_REGISTRY }}"
+            echo "AZURE_REGISTRY_FQDN: ${{ env.AZURE_REGISTRY_FQDN }}"
+            echo "AZURE_CONTAINERAPP_ENVIRONMENT_NAME: ${{ env.AZURE_CONTAINERAPP_ENVIRONMENT_NAME }}"
+            echo "AZURE_RESOURCE_GROUP: ${{ env.AZURE_RESOURCE_GROUP }}"
+            echo "AZURE_SUBSCRIPTION_ID: ${{ env.AZURE_SUBSCRIPTION_ID }}"
 
       - name: Checkout
         uses: actions/checkout@v4
