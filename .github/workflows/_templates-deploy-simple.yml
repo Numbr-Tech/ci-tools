@@ -99,6 +99,7 @@ on:
 jobs:
   deploy:
     runs-on: ubuntu-latest
+    environment: ${{ github.ref_name == 'main' && 'production' || 'staging' }}
     env:
       AZURE_REGISTRY: ${{ inputs.INFRA_ENV == 'production' && 'nbtreg' || 'pprodnbtregistry' }}
       AZURE_REGISTRY_FQDN: ${{ inputs.INFRA_ENV == 'production' && 'nbtreg' || 'pprodnbtregistry-aucgecdkece6b5d7' }}.azurecr.io
