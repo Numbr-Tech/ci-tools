@@ -4,7 +4,9 @@
 
     a. créer un secret AZURE_CLIENT_ID dans votre repository github https://github.com/Numbr-Tech/<votre-reop>/settings/secrets/actions.
 
-    b. de faire pointer un host sur votre container pour y accéder en HTTP (staging.)<app-name>.swapn.fr.
+    b. set l'oidc côté Azure.
+    
+    c. de faire pointer un host sur votre container pour y accéder en HTTP (staging.)<app-name>.swapn.fr.
 
 2. Créer un fichier Infra/containerapp.yaml.tpl
     ```yaml
