@@ -150,9 +150,9 @@ jobs:
             echo "INGRESS_EXTERNAL: ${{ inputs.INGRESS_EXTERNAL }}"
             echo "RESOURCE_CPU: ${{ inputs.RESOURCE_CPU }}"
             echo "RESOURCE_MEMORY: ${{ inputs.RESOURCE_MEMORY }}"
-            echo "SCALE_MIN_REPLICATS: ${{ inputs.SCALE_MIN_REPLICATS }}"
-            echo "SCALE_MAX_REPLICATS: ${{ inputs.SCALE_MAX_REPLICATS }}"
-            echo "SCALE_CONCURRENT_REQUEST: ${{ inputs.SCALE_CONCURRENT_REQUEST }}"
+            echo "SCALE_MIN_REPLICAS: ${{ inputs.SCALE_MIN_REPLICAS }}"
+            echo "SCALE_MAX_REPLICAS: ${{ inputs.SCALE_MAX_REPLICAS }}"
+            echo "SCALE_CONCURRENT_REQUESTS: ${{ inputs.SCALE_CONCURRENT_REQUESTS }}"
             echo "========================"
             echo "=        ENV           ="
             echo "========================"
@@ -176,8 +176,8 @@ jobs:
 
       - name: Build and Push Docker image
         run: |
-          docker build -t ${env.IMAGE_PATH} . ${{ inputs.debug == 'true' && '' || '--quiet' }}
-          docker push ${env.IMAGE_PATH}
+          docker build -t ${{ env.IMAGE_PATH }} . ${{ inputs.debug == 'true' && '' || '--quiet' }}
+          docker push ${{ env.IMAGE_PATH }}
 
       - name: Create Container App Environment if missing
         run: |
