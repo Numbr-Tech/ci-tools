@@ -22,11 +22,6 @@ on:
         required: false
         type: string
         default: 'rg-frc-legacy'
-      AZURE_CONTAINERAPP_ENVIRONMENT_NAME: 
-        description: 'Azure container app environment name'
-        required: false
-        type: string
-        default: ${{ inputs.PROJECT_NAME }}-${{ inputs.INFRA_ENV == 'production' && 'production' || 'staging' }}-workspace
       AZURE_VNET_NAME:
         description: ''
         required: false
@@ -121,6 +116,7 @@ jobs:
     runs-on: ubuntu-latest
     environment: ${{ github.ref_name == 'main' && 'production' || 'staging' }}
     env:
+      AZURE_CONTAINERAPP_ENVIRONMENT_NAME: ${{ inputs.PROJECT_NAME }}-${{ inputs.INFRA_ENV }}-workspace
       AZURE_SUBSCRIPTION_ID: ${{ inputs.INFRA_ENV == 'production' && secrets.AZURE_SUBSCRIPTION_ID_PROD || secrets.AZURE_SUBSCRIPTION_ID_PPROD }}
       IMAGE_PATH: ${{ inputs.AZURE_REGISTRY_FQDN }}/${{ inputs.PROJECT_NAME }}:${{ inputs.IMAGE_TAG }}
     permissions:
@@ -136,7 +132,6 @@ jobs:
             echo "DEBUG: ${{ inputs.DEBUG }}"
             echo "INFRA_ENV: ${{ inputs.INFRA_ENV }}"
             echo "PROJECT_NAME: ${{ inputs.PROJECT_NAME }}"
-            echo "AZURE_CONTAINERAPP_ENVIRONMENT_NAME: ${{ inputs.AZURE_CONTAINERAPP_ENVIRONMENT_NAME }}"
             echo "AZURE_LOCATION: ${{ inputs.AZURE_LOCATION }}"
             echo "AZURE_RESOURCE_GROUP: ${{ inputs.AZURE_RESOURCE_GROUP }}"
             echo "AZURE_SHARED_RESOURCE_GROUP: ${{ inputs.AZURE_SHARED_RESOURCE_GROUP }}"
@@ -156,6 +151,7 @@ jobs:
             echo "========================"
             echo "=        ENV           ="
             echo "========================"
+            echo "AZURE_CONTAINERAPP_ENVIRONMENT_NAME: ${{ env.AZURE_CONTAINERAPP_ENVIRONMENT_NAME }}"
             echo "AZURE_SUBSCRIPTION_ID: ${{ env.AZURE_SUBSCRIPTION_ID }}"
             echo "IMAGE_PATH: ${{ env.IMAGE_PATH }}"
 
@@ -181,17 +177,17 @@ jobs:
 
       - name: Create Container App Environment if missing
         run: |
-          echo "🔍 Checking if Container App environment ${{ inputs.AZURE_CONTAINERAPP_ENVIRONMENT_NAME }} exists..."
+          echo "🔍 Checking if Container App environment ${{ env.AZURE_CONTAINERAPP_ENVIRONMENT_NAME }} exists..."
           if az containerapp env show \
-            --name "${{ inputs.AZURE_CONTAINERAPP_ENVIRONMENT_NAME }}" \
+            --name "${{ env.AZURE_CONTAINERAPP_ENVIRONMENT_NAME }}" \
             --resource-group "${{ inputs.AZURE_RESOURCE_GROUP }}" \
             --query "name" \
             --only-show-errors > /dev/null 2>&1; then
-            echo "✅ Container App environment '${{ inputs.AZURE_CONTAINERAPP_ENVIRONMENT_NAME }}' already exists"
+            echo "✅ Container App environment '${{ env.AZURE_CONTAINERAPP_ENVIRONMENT_NAME }}' already exists"
           else
-            echo "🏗️ Creating Container App environment '${{ inputs.AZURE_CONTAINERAPP_ENVIRONMENT_NAME }}'..."
+            echo "🏗️ Creating Container App environment '${{ env.AZURE_CONTAINERAPP_ENVIRONMENT_NAME }}'..."
             az containerapp env create \
-                --name "${{ inputs.AZURE_CONTAINERAPP_ENVIRONMENT_NAME }}" \
+                --name "${{ env.AZURE_CONTAINERAPP_ENVIRONMENT_NAME }}" \
                 --resource-group "${{ inputs.AZURE_RESOURCE_GROUP }}" \
                 --location "${{ inputs.AZURE_LOCATION }}" \
                 --internal-only true \
@@ -206,7 +202,7 @@ jobs:
               -e "s|__AZURE_SUBSCRIPTION_ID__|${{ env.AZURE_SUBSCRIPTION_ID }}|g" \
               -e "s|__AZURE_SHARED_RESOURCE_GROUP__|${{ inputs.AZURE_SHARED_RESOURCE_GROUP }}|g" \
               -e "s|__AZURE_RESOURCE_GROUP__|${{ inputs.AZURE_RESOURCE_GROUP }}|g" \
-              -e "s|__AZURE_CONTAINERAPP_ENVIRONMENT_NAME__|${{ inputs.AZURE_CONTAINERAPP_ENVIRONMENT_NAME }}|g" \
+              -e "s|__AZURE_CONTAINERAPP_ENVIRONMENT_NAME__|${{ env.AZURE_CONTAINERAPP_ENVIRONMENT_NAME }}|g" \
               -e "s|__AZURE_REGISTRY_FQDN__|${{ inputs.AZURE_REGISTRY_FQDN }}|g" \
               -e "s|__IMAGE_TAG__|${{ inputs.IMAGE_TAG }}|g" \
               -e "s|__INGRESS_PORT__|${{ inputs.INGRESS_PORT }}|g" \
