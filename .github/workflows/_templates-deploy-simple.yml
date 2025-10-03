@@ -92,11 +92,6 @@ on:
         required: false
         type: string
         default: '${{ github.sha }}'
-      IMAGE_PATH: 
-        description: 'Image path'
-        required: false
-        type: string
-        default: ${{ inputs.AZURE_REGISTRY_FQDN }}/${{ inputs.PROJECT_NAME }}:${{ inputs.IMAGE_TAG }}
       INFRA_ENV:
         description: 'Infra environment'
         required: false
@@ -127,6 +122,7 @@ jobs:
     environment: ${{ github.ref_name == 'main' && 'production' || 'staging' }}
     env:
       AZURE_SUBSCRIPTION_ID: ${{ inputs.INFRA_ENV == 'production' && secrets.AZURE_SUBSCRIPTION_ID_PROD || secrets.AZURE_SUBSCRIPTION_ID_PPROD }}
+      IMAGE_PATH: ${{ inputs.AZURE_REGISTRY_FQDN }}/${{ inputs.PROJECT_NAME }}:${{ inputs.IMAGE_TAG }}
     permissions:
       id-token: write
       contents: read
@@ -149,7 +145,6 @@ jobs:
             echo "AZURE_VAULT_NAME: ${{ inputs.AZURE_VAULT_NAME }}"
             echo "AZURE_REGISTRY: ${{ inputs.AZURE_REGISTRY }}"
             echo "AZURE_REGISTRY_FQDN: ${{ inputs.AZURE_REGISTRY_FQDN }}"
-            echo "IMAGE_PATH: ${{ inputs.IMAGE_PATH }}"
             echo "IMAGE_TAG: ${{ inputs.IMAGE_TAG }}"
             echo "INGRESS_PORT: ${{ inputs.INGRESS_PORT }}"
             echo "INGRESS_EXTERNAL: ${{ inputs.INGRESS_EXTERNAL }}"
@@ -162,6 +157,7 @@ jobs:
             echo "=        ENV           ="
             echo "========================"
             echo "AZURE_SUBSCRIPTION_ID: ${{ env.AZURE_SUBSCRIPTION_ID }}"
+            echo "IMAGE_PATH: ${{ env.IMAGE_PATH }}"
 
       - name: Checkout
         uses: actions/checkout@v4
@@ -180,8 +176,8 @@ jobs:
 
       - name: Build and Push Docker image
         run: |
-          docker build -t ${inputs.IMAGE_PATH} . ${{ inputs.debug == 'true' && '' || '--quiet' }}
-          docker push ${inputs.IMAGE_PATH}
+          docker build -t ${env.IMAGE_PATH} . ${{ inputs.debug == 'true' && '' || '--quiet' }}
+          docker push ${env.IMAGE_PATH}
 
       - name: Create Container App Environment if missing
         run: |
@@ -232,6 +228,6 @@ jobs:
         with:
           azureCredentials: ${{ secrets.AZURE_CREDENTIALS }}
           containerAppName: ${{ inputs.PROJECT_NAME }}
-          imageToDeploy: ${{ inputs.IMAGE_PATH }}
+          imageToDeploy: ${{ env.IMAGE_PATH }}
           resourceGroup: ${{ inputs.AZURE_RESOURCE_GROUP }}
           yamlConfigPath: ./Infra/containerapp.yaml
