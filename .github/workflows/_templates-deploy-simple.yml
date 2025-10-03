@@ -219,6 +219,7 @@ jobs:
               -e "s|__SCALE_CONCURRENT_REQUESTS__|${{ inputs.SCALE_CONCURRENT_REQUESTS }}|g" \
               -e "s|__AZURE_VAULT_NAME__|${{ inputs.AZURE_VAULT_NAME }}|g" \
               -e "s|__INFRA_ENV__|${{ inputs.INFRA_ENV }}|g" \
+              -e "s|__VERSION__|${{ github.sha }}|g" \
               Infra/containerapp.yaml.tpl > Infra/containerapp.yaml
           if [ "${{ inputs.DEBUG }}" = "true" ]; then
             cat Infra/containerapp.yaml

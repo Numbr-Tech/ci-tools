@@ -36,6 +36,8 @@
           env:
             - name: "INFRA_ENV"
               value: "__INFRA_ENV__"
+            - name: "VERSION"
+              value: "__VERSION__"
       scale:
         minReplicas: __SCALE_MIN_REPLICAS__
         maxReplicas: __SCALE_MAX_REPLICAS__
