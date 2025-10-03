@@ -47,17 +47,17 @@ on:
         required: false
         type: string
         default: '1.0Gi'
-      SCALE_MIN_REPLICATS:
+      SCALE_MIN_REPLICAS:
         description: 'Scale min replicats'
         required: false
         type: string
         default: '1'
-      SCALE_MAX_REPLICATS:
+      SCALE_MAX_REPLICAS:
         description: 'Scale max replicats'
         required: false
         type: string
         default: '1'
-      SCALE_CONCURRENT_REQUEST:
+      SCALE_CONCURRENT_REQUESTS:
         description: 'Scale concurrent request'
         required: false
         type: string
@@ -196,9 +196,9 @@ jobs:
               -e "s|__INGRESS_EXTERNAL__|${{ inputs.INGRESS_EXTERNAL }}|g" \
               -e "s|__RESOURCE_CPU__|${{ inputs.RESOURCE_CPU }}|g" \
               -e "s|__RESOURCE_MEMORY__|${{ inputs.RESOURCE_MEMORY }}|g" \
-              -e "s|__SCALE_MIN_REPLICATS__|${{ inputs.SCALE_MIN_REPLICATS }}|g" \
-              -e "s|__SCALE_MAX_REPLICATS__|${{ inputs.SCALE_MAX_REPLICATS }}|g" \
-              -e "s|__SCALE_CONCURRENT_REQUEST__|${{ inputs.SCALE_CONCURRENT_REQUEST }}|g" \
+              -e "s|__SCALE_MIN_REPLICAS__|${{ inputs.SCALE_MIN_REPLICAS }}|g" \
+              -e "s|__SCALE_MAX_REPLICAS__|${{ inputs.SCALE_MAX_REPLICAS }}|g" \
+              -e "s|__SCALE_CONCURRENT_REQUESTS__|${{ inputs.SCALE_CONCURRENT_REQUESTS }}|g" \
               -e "s|__AZURE_VAULT_NAME__|${{ inputs.AZURE_VAULT_NAME }}|g" \
               -e "s|__INFRA_ENV__|${{ inputs.INFRA_ENV }}|g" \
               Infra/containerapp.yaml.tpl > Infra/containerapp.yaml
