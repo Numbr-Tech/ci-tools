@@ -218,6 +218,8 @@ jobs:
               -e "s|__SCALE_MAX_REPLICAS__|${{ inputs.SCALE_MAX_REPLICAS }}|g" \
               -e "s|__SCALE_CONCURRENT_REQUESTS__|${{ inputs.SCALE_CONCURRENT_REQUESTS }}|g" \
               -e "s|__AZURE_VAULT_NAME__|${{ inputs.AZURE_VAULT_NAME }}|g" \
+              -e "s|__AZURE_IDENTITY__|/subscriptions/${{ env.AZURE_SUBSCRIPTION_ID }}/resourceGroups/${{ inputs.AZURE_RESOURCE_GROUP }}/providers/Microsoft.ManagedIdentity/userAssignedIdentities/mid-frc-iac|g" \
+              -e "s|__AZURE_ENVIRONMENT_FOLDER__|/subscriptions/${{ env.AZURE_SUBSCRIPTION_ID }}/resourceGroups/${{ inputs.AZURE_RESOURCE_GROUP }}/providers/Microsoft.App/managedEnvironments|g" \
               -e "s|__INFRA_ENV__|${{ inputs.INFRA_ENV }}|g" \
               -e "s|__VERSION__|${{ github.sha }}|g" \
               Infra/containerapp.yaml.tpl > Infra/containerapp.yaml
