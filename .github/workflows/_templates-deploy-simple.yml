@@ -165,6 +165,33 @@ jobs:
         with:
           fetch-depth: 0
 
+      - name: Build containerapp.yaml
+        run: |
+          sed -e "s|__PROJECT_NAME__|${{ inputs.PROJECT_NAME }}|g" \
+              -e "s|__AZURE_LOCATION__|${{ inputs.AZURE_LOCATION }}|g" \
+              -e "s|__AZURE_SUBSCRIPTION_ID__|${{ env.AZURE_SUBSCRIPTION_ID }}|g" \
+              -e "s|__AZURE_SHARED_RESOURCE_GROUP__|${{ inputs.AZURE_SHARED_RESOURCE_GROUP }}|g" \
+              -e "s|__AZURE_RESOURCE_GROUP__|${{ inputs.AZURE_RESOURCE_GROUP }}|g" \
+              -e "s|__AZURE_CONTAINERAPP_ENVIRONMENT_NAME__|${{ env.AZURE_CONTAINERAPP_ENVIRONMENT_NAME }}|g" \
+              -e "s|__AZURE_REGISTRY_FQDN__|${{ inputs.AZURE_REGISTRY_FQDN }}|g" \
+              -e "s|__IMAGE_TAG__|${{ inputs.IMAGE_TAG }}|g" \
+              -e "s|__INGRESS_PORT__|${{ inputs.INGRESS_PORT }}|g" \
+              -e "s|__INGRESS_EXTERNAL__|${{ inputs.INGRESS_EXTERNAL }}|g" \
+              -e "s|__RESOURCE_CPU__|${{ inputs.RESOURCE_CPU }}|g" \
+              -e "s|__RESOURCE_MEMORY__|${{ inputs.RESOURCE_MEMORY }}|g" \
+              -e "s|__SCALE_MIN_REPLICAS__|${{ inputs.SCALE_MIN_REPLICAS }}|g" \
+              -e "s|__SCALE_MAX_REPLICAS__|${{ inputs.SCALE_MAX_REPLICAS }}|g" \
+              -e "s|__SCALE_CONCURRENT_REQUESTS__|${{ inputs.SCALE_CONCURRENT_REQUESTS }}|g" \
+              -e "s|__AZURE_VAULT_NAME__|${{ inputs.AZURE_VAULT_NAME }}|g" \
+              -e "s|__AZURE_IDENTITY__|/subscriptions/${{ env.AZURE_SUBSCRIPTION_ID }}/resourceGroups/${{ inputs.AZURE_RESOURCE_GROUP }}/providers/Microsoft.ManagedIdentity/userAssignedIdentities/mid-frc-iac|g" \
+              -e "s|__AZURE_ENVIRONMENT_FOLDER__|/subscriptions/${{ env.AZURE_SUBSCRIPTION_ID }}/resourceGroups/${{ inputs.AZURE_RESOURCE_GROUP }}/providers/Microsoft.App/managedEnvironments|g" \
+              -e "s|__INFRA_ENV__|${{ inputs.INFRA_ENV }}|g" \
+              -e "s|__VERSION__|${{ github.sha }}|g" \
+              Infra/containerapp.yaml.tpl > Infra/containerapp.yaml
+          if [ "${{ inputs.DEBUG }}" = "true" ]; then
+            cat Infra/containerapp.yaml
+          fi
+
       - name: Login to Azure
         uses: azure/login@v2
         with:
@@ -198,33 +225,6 @@ jobs:
                 --internal-only ${{ inputs.AZURE_CONTAINERAPP_ENVIRONMENT_INTERNAL_ONLY }} \
                 $([ -n "${{ inputs.AZURE_VNET_NAME }}" ] && [ -n "${{ inputs.AZURE_SUBNET_NAME }}" ] && echo "--infrastructure-subnet-resource-id \"/subscriptions/${{ env.AZURE_SUBSCRIPTION_ID }}/resourceGroups/${{ inputs.AZURE_RESOURCE_GROUP }}/providers/Microsoft.Network/virtualNetworks/${{ inputs.AZURE_VNET_NAME }}/subnets/${{ inputs.AZURE_SUBNET_NAME}}\"")
             echo "✅ Container App environment created successfully"
-          fi
-
-      - name: Build containerapp.yaml
-        run: |
-          sed -e "s|__PROJECT_NAME__|${{ inputs.PROJECT_NAME }}|g" \
-              -e "s|__AZURE_LOCATION__|${{ inputs.AZURE_LOCATION }}|g" \
-              -e "s|__AZURE_SUBSCRIPTION_ID__|${{ env.AZURE_SUBSCRIPTION_ID }}|g" \
-              -e "s|__AZURE_SHARED_RESOURCE_GROUP__|${{ inputs.AZURE_SHARED_RESOURCE_GROUP }}|g" \
-              -e "s|__AZURE_RESOURCE_GROUP__|${{ inputs.AZURE_RESOURCE_GROUP }}|g" \
-              -e "s|__AZURE_CONTAINERAPP_ENVIRONMENT_NAME__|${{ env.AZURE_CONTAINERAPP_ENVIRONMENT_NAME }}|g" \
-              -e "s|__AZURE_REGISTRY_FQDN__|${{ inputs.AZURE_REGISTRY_FQDN }}|g" \
-              -e "s|__IMAGE_TAG__|${{ inputs.IMAGE_TAG }}|g" \
-              -e "s|__INGRESS_PORT__|${{ inputs.INGRESS_PORT }}|g" \
-              -e "s|__INGRESS_EXTERNAL__|${{ inputs.INGRESS_EXTERNAL }}|g" \
-              -e "s|__RESOURCE_CPU__|${{ inputs.RESOURCE_CPU }}|g" \
-              -e "s|__RESOURCE_MEMORY__|${{ inputs.RESOURCE_MEMORY }}|g" \
-              -e "s|__SCALE_MIN_REPLICAS__|${{ inputs.SCALE_MIN_REPLICAS }}|g" \
-              -e "s|__SCALE_MAX_REPLICAS__|${{ inputs.SCALE_MAX_REPLICAS }}|g" \
-              -e "s|__SCALE_CONCURRENT_REQUESTS__|${{ inputs.SCALE_CONCURRENT_REQUESTS }}|g" \
-              -e "s|__AZURE_VAULT_NAME__|${{ inputs.AZURE_VAULT_NAME }}|g" \
-              -e "s|__AZURE_IDENTITY__|/subscriptions/${{ env.AZURE_SUBSCRIPTION_ID }}/resourceGroups/${{ inputs.AZURE_RESOURCE_GROUP }}/providers/Microsoft.ManagedIdentity/userAssignedIdentities/mid-frc-iac|g" \
-              -e "s|__AZURE_ENVIRONMENT_FOLDER__|/subscriptions/${{ env.AZURE_SUBSCRIPTION_ID }}/resourceGroups/${{ inputs.AZURE_RESOURCE_GROUP }}/providers/Microsoft.App/managedEnvironments|g" \
-              -e "s|__INFRA_ENV__|${{ inputs.INFRA_ENV }}|g" \
-              -e "s|__VERSION__|${{ github.sha }}|g" \
-              Infra/containerapp.yaml.tpl > Infra/containerapp.yaml
-          if [ "${{ inputs.DEBUG }}" = "true" ]; then
-            cat Infra/containerapp.yaml
           fi
 
       - name: Deploy Container App
