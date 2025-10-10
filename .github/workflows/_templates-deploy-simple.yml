@@ -233,7 +233,7 @@ jobs:
                 --resource-group "${{ inputs.AZURE_RESOURCE_GROUP }}" \
                 --location "${{ inputs.AZURE_LOCATION }}" \
                 --internal-only ${{ inputs.AZURE_CONTAINERAPP_ENVIRONMENT_INTERNAL_ONLY }} \
-                $([ -n "${{ inputs.AZURE_VNET_NAME }}" ] && [ -n "${{ inputs.AZURE_SUBNET_NAME }}" ] && echo '--infrastructure-subnet-resource-id "/subscriptions/${{ env.AZURE_SUBSCRIPTION_ID }}/resourceGroups/${{ inputs.AZURE_RESOURCE_GROUP }}/providers/Microsoft.Network/virtualNetworks/${{ inputs.AZURE_VNET_NAME }}/subnets/${{ inputs.AZURE_SUBNET_NAME}}"')
+                $([ -n "${{ inputs.AZURE_VNET_NAME }}" ] && [ -n "${{ inputs.AZURE_SUBNET_NAME }}" ] && echo "--infrastructure-subnet-resource-id '/subscriptions/${{ env.AZURE_SUBSCRIPTION_ID }}/resourceGroups/${{ inputs.AZURE_RESOURCE_GROUP }}/providers/Microsoft.Network/virtualNetworks/${{ inputs.AZURE_VNET_NAME }}/subnets/${{ inputs.AZURE_SUBNET_NAME}}'")
             echo "✅ Container App environment created successfully"
           fi
 
