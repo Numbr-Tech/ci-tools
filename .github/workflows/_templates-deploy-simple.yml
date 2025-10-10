@@ -187,7 +187,7 @@ jobs:
               -e "s|__AZURE_VAULT_BASE_URL__|https://${{ inputs.AZURE_VAULT_NAME }}.vault.azure.net/secrets|g" \
               -e "s|__AZURE_IDENTITY__|/subscriptions/${{ env.AZURE_SUBSCRIPTION_ID }}/resourceGroups/${{ inputs.AZURE_RESOURCE_GROUP }}/providers/Microsoft.ManagedIdentity/userAssignedIdentities/mid-frc-iac|g" \
               -e "s|__AZURE_ENVIRONMENT_ID__|/subscriptions/${{ env.AZURE_SUBSCRIPTION_ID }}/resourceGroups/${{ inputs.AZURE_RESOURCE_GROUP }}/providers/Microsoft.App/managedEnvironments/${{ env.AZURE_CONTAINERAPP_ENVIRONMENT_NAME }}|g" \
-              -e "s|__AZURE_REGISTRIES_IDENTITY__|/subscriptions/${{ env.AZURE_SUBSCRIPTION_ID }}/resourceGroups/${{ inputs.AZURE_SHARED_RESOURCE_GROUP }}/providers/Microsoft.ManagedIdentity/userAssignedIdentities/mid-frc-iac|g" \
+              -e "s|__AZURE_SHARED_IDENTITY__|/subscriptions/${{ env.AZURE_SUBSCRIPTION_ID }}/resourceGroups/${{ inputs.AZURE_SHARED_RESOURCE_GROUP }}/providers/Microsoft.ManagedIdentity/userAssignedIdentities/mid-frc-iac|g" \
               -e "s|__INFRA_ENV__|${{ inputs.INFRA_ENV }}|g" \
               -e "s|__VERSION__|${{ github.sha }}|g" \
               Infra/containerapp.yaml.tpl > Infra/containerapp.yaml

@@ -11,13 +11,13 @@
     identity:
       type: UserAssigned
       userAssignedIdentities:
-        __AZURE_REGISTRIES_IDENTITY__: {}
+        __AZURE_SHARED_IDENTITY__: {}
     properties:
       environmentId: __AZURE_ENVIRONMENT_ID__
       configuration:
         secrets:
           - name: my-secret
-            identity: "__AZURE_IDENTITY__"
+            identity: "__AZURE_SHARED_IDENTITY__"
             keyVaultUrl: "__AZURE_VAULT_BASE_URL__/my-secret"
         ingress:
           allowInsecure: false
@@ -25,7 +25,7 @@
           targetPort: __INGRESS_PORT__
         registries:
           - server: __AZURE_REGISTRY_FQDN__
-            identity: __AZURE_REGISTRIES_IDENTITY__
+            identity: __AZURE_SHARED_IDENTITY__
     template:
       containers:
         - image: __IMAGE_PATH__
