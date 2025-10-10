@@ -228,12 +228,21 @@ jobs:
             echo "✅ Container App environment '${{ env.AZURE_CONTAINERAPP_ENVIRONMENT_NAME }}' already exists"
           else
             echo "🏗️ Creating Container App environment '${{ env.AZURE_CONTAINERAPP_ENVIRONMENT_NAME }}'..."
-            az containerapp env create \
-                --name "${{ env.AZURE_CONTAINERAPP_ENVIRONMENT_NAME }}" \
-                --resource-group "${{ inputs.AZURE_RESOURCE_GROUP }}" \
-                --location "${{ inputs.AZURE_LOCATION }}" \
-                --internal-only ${{ inputs.AZURE_CONTAINERAPP_ENVIRONMENT_INTERNAL_ONLY }} \
-                $([ -n "${{ inputs.AZURE_VNET_NAME }}" ] && [ -n "${{ inputs.AZURE_SUBNET_NAME }}" ] && echo "--infrastructure-subnet-resource-id /subscriptions/${{ env.AZURE_SUBSCRIPTION_ID }}/resourceGroups/${{ inputs.AZURE_RESOURCE_GROUP }}/providers/Microsoft.Network/virtualNetworks/${{ inputs.AZURE_VNET_NAME }}/subnets/${{ inputs.AZURE_SUBNET_NAME}}")
+            if [ -n "${{ inputs.AZURE_VNET_NAME }}" ] && [ -n "${{ inputs.AZURE_SUBNET_NAME }}" ]
+            then
+              az containerapp env create \
+                  --name "${{ env.AZURE_CONTAINERAPP_ENVIRONMENT_NAME }}" \
+                  --resource-group "${{ inputs.AZURE_RESOURCE_GROUP }}" \
+                  --location "${{ inputs.AZURE_LOCATION }}" \
+                  --internal-only ${{ inputs.AZURE_CONTAINERAPP_ENVIRONMENT_INTERNAL_ONLY }} \
+                  --infrastructure-subnet-resource-id "/subscriptions/${{ env.AZURE_SUBSCRIPTION_ID }}/resourceGroups/${{ inputs.AZURE_RESOURCE_GROUP }}/providers/Microsoft.Network/virtualNetworks/${{ inputs.AZURE_VNET_NAME }}/subnets/${{ inputs.AZURE_SUBNET_NAME}}"
+            else
+              az containerapp env create \
+                  --name "${{ env.AZURE_CONTAINERAPP_ENVIRONMENT_NAME }}" \
+                  --resource-group "${{ inputs.AZURE_RESOURCE_GROUP }}" \
+                  --location "${{ inputs.AZURE_LOCATION }}" \
+                  --internal-only ${{ inputs.AZURE_CONTAINERAPP_ENVIRONMENT_INTERNAL_ONLY }}
+            fi
             echo "✅ Container App environment created successfully"
           fi
 
