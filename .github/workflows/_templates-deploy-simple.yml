@@ -86,7 +86,7 @@ on:
         description: 'Azure vault name'
         required: false
         type: string
-        default: 'vault-frc-iac'
+        default: 'key-frc-legacy'
       IMAGE_TAG:
         description: 'Image tag'
         required: false
