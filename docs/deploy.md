@@ -11,24 +11,24 @@
     identity:
       type: UserAssigned
       userAssignedIdentities:
-        /subscriptions/__AZURE_SUBSCRIPTION_ID__/resourceGroups/__AZURE_SHARED_RESOURCE_GROUP__/providers/Microsoft.ManagedIdentity/userAssignedIdentities/mid-frc-iac: {}
+        __AZURE_REGISTRIES_IDENTITY__: {}
     properties:
-      environmentId: /subscriptions/__AZURE_SUBSCRIPTION_ID__/resourceGroups/__AZURE_RESOURCE_GROUP__/providers/Microsoft.App/managedEnvironments/__AZURE_CONTAINERAPP_ENVIRONMENT_NAME__
+      environmentId: __AZURE_ENVIRONMENT_ID__
       configuration:
         secrets:
-          - name: MY_SECRET
-            identity: "/subscriptions/${{ env.AZURE_SUBSCRIPTION_ID }}/resourceGroups/${{ env.AZURE_RESOURCE_GROUP }}/providers/Microsoft.ManagedIdentity/userAssignedIdentities/mid-frc-iac"
-            keyVaultUrl: "https://${{ env.AZURE_VAULT_NAME }}.vault.azure.net/secrets/MY_SECRET"
+          - name: my-secret
+            identity: "__AZURE_IDENTITY__"
+            keyVaultUrl: "__AZURE_VAULT_BASE_URL__/my-secret"
         ingress:
           allowInsecure: false
           external: __INGRESS_EXTERNAL__
           targetPort: __INGRESS_PORT__
         registries:
           - server: __AZURE_REGISTRY_FQDN__
-            identity: /subscriptions/__AZURE_SUBSCRIPTION_ID__/resourceGroups/__AZURE_SHARED_RESOURCE_GROUP__/providers/Microsoft.ManagedIdentity/userAssignedIdentities/mid-frc-iac
+            identity: __AZURE_REGISTRIES_IDENTITY__
     template:
       containers:
-        - image: __AZURE_REGISTRY_FQDN__/__PROJECT_NAME__:__IMAGE_TAG__
+        - image: __IMAGE_TAG__
           name: __PROJECT_NAME__
           resources:
             cpu: "__RESOURCE_CPU__"
@@ -36,8 +36,6 @@
           env:
             - name: "INFRA_ENV"
               value: "__INFRA_ENV__"
-            - name: "VERSION"
-              value: "__VERSION__"
       scale:
         minReplicas: __SCALE_MIN_REPLICAS__
         maxReplicas: __SCALE_MAX_REPLICAS__
