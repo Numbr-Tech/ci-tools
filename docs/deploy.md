@@ -28,7 +28,7 @@
             identity: __AZURE_REGISTRIES_IDENTITY__
     template:
       containers:
-        - image: __IMAGE_TAG__
+        - image: __IMAGE_PATH__
           name: __PROJECT_NAME__
           resources:
             cpu: "__RESOURCE_CPU__"

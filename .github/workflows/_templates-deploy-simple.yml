@@ -175,6 +175,7 @@ jobs:
               -e "s|__AZURE_CONTAINERAPP_ENVIRONMENT_NAME__|${{ env.AZURE_CONTAINERAPP_ENVIRONMENT_NAME }}|g" \
               -e "s|__AZURE_REGISTRY_FQDN__|${{ inputs.AZURE_REGISTRY_FQDN }}|g" \
               -e "s|__IMAGE_TAG__|${{ inputs.IMAGE_TAG }}|g" \
+              -e "s|__IMAGE_PATH__|${{ inputs.IMAGE_PATH }}|g" \
               -e "s|__INGRESS_PORT__|${{ inputs.INGRESS_PORT }}|g" \
               -e "s|__INGRESS_EXTERNAL__|${{ inputs.INGRESS_EXTERNAL }}|g" \
               -e "s|__RESOURCE_CPU__|${{ inputs.RESOURCE_CPU }}|g" \
