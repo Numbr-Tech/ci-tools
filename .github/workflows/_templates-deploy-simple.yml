@@ -42,6 +42,11 @@ on:
         required: false
         type: string
         default: ${{ inputs.INFRA_ENV == 'production' && 'nbtreg' || 'pprodnbtregistry-aucgecdkece6b5d7' }}.azurecr.io
+      AZURE_CONTAINERAPP_ENVIRONMENT_FORCE_CREATE:
+        description: 'Force create container app environment'
+        required: false
+        type: boolean
+        default: false
       AZURE_CONTAINERAPP_ENVIRONMENT_INTERNAL_ONLY:
         description: 'Azure container app environment internal only'
         required: false
@@ -157,6 +162,8 @@ jobs:
             echo "=        ENV           ="
             echo "========================"
             echo "AZURE_CONTAINERAPP_ENVIRONMENT_NAME: ${{ env.AZURE_CONTAINERAPP_ENVIRONMENT_NAME }}"
+            echo "AZURE_CONTAINERAPP_ENVIRONMENT_FORCE_CREATE: ${{ inputs.AZURE_CONTAINERAPP_ENVIRONMENT_FORCE_CREATE }}"
+            echo "AZURE_CONTAINERAPP_ENVIRONMENT_INTERNAL_ONLY: ${{ inputs.AZURE_CONTAINERAPP_ENVIRONMENT_INTERNAL_ONLY }}"
             echo "AZURE_SUBSCRIPTION_ID: ${{ env.AZURE_SUBSCRIPTION_ID }}"
             echo "IMAGE_PATH: ${{ env.IMAGE_PATH }}"
 
@@ -213,7 +220,7 @@ jobs:
       - name: Create Container App Environment if missing
         run: |
           echo "🔍 Checking if Container App environment ${{ env.AZURE_CONTAINERAPP_ENVIRONMENT_NAME }} exists..."
-          if az containerapp env show \
+          if [ "${{ inputs.AZURE_CONTAINERAPP_ENVIRONMENT_FORCE_CREATE }}" = "false" ] && az containerapp env show \
             --name "${{ env.AZURE_CONTAINERAPP_ENVIRONMENT_NAME }}" \
             --resource-group "${{ inputs.AZURE_RESOURCE_GROUP }}" \
             --query "name" \
