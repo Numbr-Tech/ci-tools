@@ -26,12 +26,12 @@ on:
         description: ''
         required: false
         type: string
-        default: ''
+        default: 'vnet-frc-legacy'
       AZURE_SUBNET_NAME:
         description: ''
         required: false
         type: string
-        default: ''
+        default: 'subnet-app'
       AZURE_REGISTRY: 
         description: 'Azure registry'
         required: false
