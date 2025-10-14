@@ -102,6 +102,11 @@ on:
         required: false
         type: string
         default: "${{ github.ref_name == 'main' && 'production' || 'staging' }}"
+      DOCKER_FILE_DIRECTORY:
+        description: 'Docker file directory'
+        required: false
+        type: string
+        default: '.'
       DEBUG:
         description: 'Enable debug mode (verbose logs)'
         required: false
@@ -214,7 +219,7 @@ jobs:
 
       - name: Build and Push Docker image
         run: |
-          docker build -t ${{ env.IMAGE_PATH }} . ${{ inputs.debug == 'true' && '' || '--quiet' }}
+          docker build -t ${{ env.IMAGE_PATH }} ${{ inputs.DOCKER_FILE_DIRECTORY }} ${{ inputs.debug == 'true' && '' || '--quiet' }}
           docker push ${{ env.IMAGE_PATH }}
 
       - name: Create Container App Environment if missing
