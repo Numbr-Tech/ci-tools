@@ -17,6 +17,11 @@ on:
         required: false
         type: string
         default: 'rg-frc-pprodgeneral'
+      AZURE_RESOURCE_GROUP:
+        description: 'Azure resource group'
+        required: false
+        type: string
+        default: 'rg-frc-legacy'
       AZURE_VNET_NAME:
         description: ''
         required: false
@@ -26,7 +31,27 @@ on:
         description: ''
         required: false
         type: string
-        default: ''
+        default: 'subnet-app'
+      AZURE_REGISTRY: 
+        description: 'Azure registry'
+        required: false
+        type: string
+        default: ${{ inputs.INFRA_ENV == 'production' && 'nbtreg' || 'pprodnbtregistry' }}
+      AZURE_REGISTRY_FQDN: 
+        description: 'Azure registry fqdn'
+        required: false
+        type: string
+        default: ${{ inputs.INFRA_ENV == 'production' && 'nbtreg' || 'pprodnbtregistry-aucgecdkece6b5d7' }}.azurecr.io
+      AZURE_CONTAINERAPP_ENVIRONMENT_FORCE_CREATE:
+        description: 'Force create container app environment'
+        required: false
+        type: boolean
+        default: false
+      AZURE_CONTAINERAPP_ENVIRONMENT_INTERNAL_ONLY:
+        description: 'Azure container app environment internal only'
+        required: false
+        type: boolean
+        default: false
       INGRESS_PORT:
         description: 'Ingress port'
         required: false
@@ -47,17 +72,17 @@ on:
         required: false
         type: string
         default: '1.0Gi'
-      SCALE_MIN_REPLICATS:
+      SCALE_MIN_REPLICAS:
         description: 'Scale min replicats'
         required: false
         type: string
         default: '1'
-      SCALE_MAX_REPLICATS:
+      SCALE_MAX_REPLICAS:
         description: 'Scale max replicats'
         required: false
         type: string
         default: '1'
-      SCALE_CONCURRENT_REQUEST:
+      SCALE_CONCURRENT_REQUESTS:
         description: 'Scale concurrent request'
         required: false
         type: string
@@ -66,7 +91,7 @@ on:
         description: 'Azure vault name'
         required: false
         type: string
-        default: 'vault-frc-iac'
+        default: 'key-frc-legacy'
       IMAGE_TAG:
         description: 'Image tag'
         required: false
@@ -77,6 +102,11 @@ on:
         required: false
         type: string
         default: "${{ github.ref_name == 'main' && 'production' || 'staging' }}"
+      DOCKER_FILE_DIRECTORY:
+        description: 'Docker file directory'
+        required: false
+        type: string
+        default: '.'
       DEBUG:
         description: 'Enable debug mode (verbose logs)'
         required: false
@@ -101,11 +131,9 @@ jobs:
     runs-on: ubuntu-latest
     environment: ${{ github.ref_name == 'main' && 'production' || 'staging' }}
     env:
-      AZURE_REGISTRY: ${{ inputs.INFRA_ENV == 'production' && 'nbtreg' || 'pprodnbtregistry' }}
-      AZURE_REGISTRY_FQDN: ${{ inputs.INFRA_ENV == 'production' && 'nbtreg' || 'pprodnbtregistry-aucgecdkece6b5d7' }}.azurecr.io
-      AZURE_CONTAINERAPP_ENVIRONMENT_NAME: ${{ inputs.PROJECT_NAME }}-${{ inputs.INFRA_ENV == 'production' && 'production' || 'staging' }}-workspace
-      AZURE_RESOURCE_GROUP: rg-frc-${{ inputs.PROJECT_NAME }}
+      AZURE_CONTAINERAPP_ENVIRONMENT_NAME: ${{ inputs.PROJECT_NAME }}-${{ inputs.INFRA_ENV }}-workspace
       AZURE_SUBSCRIPTION_ID: ${{ inputs.INFRA_ENV == 'production' && secrets.AZURE_SUBSCRIPTION_ID_PROD || secrets.AZURE_SUBSCRIPTION_ID_PPROD }}
+      IMAGE_PATH: ${{ inputs.AZURE_REGISTRY_FQDN }}/${{ inputs.PROJECT_NAME }}:${{ inputs.IMAGE_TAG }}
     permissions:
       id-token: write
       contents: read
@@ -117,34 +145,67 @@ jobs:
             echo "=        INPUTS        ="
             echo "========================"
             echo "DEBUG: ${{ inputs.DEBUG }}"
-            echo "PROJECT_NAME: ${{ inputs.PROJECT_NAME }}"
             echo "INFRA_ENV: ${{ inputs.INFRA_ENV }}"
+            echo "PROJECT_NAME: ${{ inputs.PROJECT_NAME }}"
             echo "AZURE_LOCATION: ${{ inputs.AZURE_LOCATION }}"
+            echo "AZURE_RESOURCE_GROUP: ${{ inputs.AZURE_RESOURCE_GROUP }}"
             echo "AZURE_SHARED_RESOURCE_GROUP: ${{ inputs.AZURE_SHARED_RESOURCE_GROUP }}"
             echo "AZURE_VNET_NAME: ${{ inputs.AZURE_VNET_NAME }}"
             echo "AZURE_SUBNET_NAME: ${{ inputs.AZURE_SUBNET_NAME }}"
             echo "AZURE_VAULT_NAME: ${{ inputs.AZURE_VAULT_NAME }}"
+            echo "AZURE_REGISTRY: ${{ inputs.AZURE_REGISTRY }}"
+            echo "AZURE_REGISTRY_FQDN: ${{ inputs.AZURE_REGISTRY_FQDN }}"
             echo "IMAGE_TAG: ${{ inputs.IMAGE_TAG }}"
             echo "INGRESS_PORT: ${{ inputs.INGRESS_PORT }}"
             echo "INGRESS_EXTERNAL: ${{ inputs.INGRESS_EXTERNAL }}"
             echo "RESOURCE_CPU: ${{ inputs.RESOURCE_CPU }}"
             echo "RESOURCE_MEMORY: ${{ inputs.RESOURCE_MEMORY }}"
-            echo "SCALE_MIN_REPLICATS: ${{ inputs.SCALE_MIN_REPLICATS }}"
-            echo "SCALE_MAX_REPLICATS: ${{ inputs.SCALE_MAX_REPLICATS }}"
-            echo "SCALE_CONCURRENT_REQUEST: ${{ inputs.SCALE_CONCURRENT_REQUEST }}"
+            echo "SCALE_MIN_REPLICAS: ${{ inputs.SCALE_MIN_REPLICAS }}"
+            echo "SCALE_MAX_REPLICAS: ${{ inputs.SCALE_MAX_REPLICAS }}"
+            echo "SCALE_CONCURRENT_REQUESTS: ${{ inputs.SCALE_CONCURRENT_REQUESTS }}"
             echo "========================"
-            echo "=        ENV        ="
+            echo "=        ENV           ="
             echo "========================"
-            echo "AZURE_REGISTRY: ${{ env.AZURE_REGISTRY }}"
-            echo "AZURE_REGISTRY_FQDN: ${{ env.AZURE_REGISTRY_FQDN }}"
             echo "AZURE_CONTAINERAPP_ENVIRONMENT_NAME: ${{ env.AZURE_CONTAINERAPP_ENVIRONMENT_NAME }}"
-            echo "AZURE_RESOURCE_GROUP: ${{ env.AZURE_RESOURCE_GROUP }}"
+            echo "AZURE_CONTAINERAPP_ENVIRONMENT_FORCE_CREATE: ${{ inputs.AZURE_CONTAINERAPP_ENVIRONMENT_FORCE_CREATE }}"
+            echo "AZURE_CONTAINERAPP_ENVIRONMENT_INTERNAL_ONLY: ${{ inputs.AZURE_CONTAINERAPP_ENVIRONMENT_INTERNAL_ONLY }}"
             echo "AZURE_SUBSCRIPTION_ID: ${{ env.AZURE_SUBSCRIPTION_ID }}"
+            echo "IMAGE_PATH: ${{ env.IMAGE_PATH }}"
 
       - name: Checkout
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
+
+      - name: Build containerapp.yaml
+        run: |
+          sed -e "s|__PROJECT_NAME__|${{ inputs.PROJECT_NAME }}|g" \
+              -e "s|__AZURE_LOCATION__|${{ inputs.AZURE_LOCATION }}|g" \
+              -e "s|__AZURE_SUBSCRIPTION_ID__|${{ env.AZURE_SUBSCRIPTION_ID }}|g" \
+              -e "s|__AZURE_SHARED_RESOURCE_GROUP__|${{ inputs.AZURE_SHARED_RESOURCE_GROUP }}|g" \
+              -e "s|__AZURE_RESOURCE_GROUP__|${{ inputs.AZURE_RESOURCE_GROUP }}|g" \
+              -e "s|__AZURE_CONTAINERAPP_ENVIRONMENT_NAME__|${{ env.AZURE_CONTAINERAPP_ENVIRONMENT_NAME }}|g" \
+              -e "s|__AZURE_REGISTRY_FQDN__|${{ inputs.AZURE_REGISTRY_FQDN }}|g" \
+              -e "s|__IMAGE_TAG__|${{ inputs.IMAGE_TAG }}|g" \
+              -e "s|__IMAGE_PATH__|${{ env.IMAGE_PATH }}|g" \
+              -e "s|__INGRESS_PORT__|${{ inputs.INGRESS_PORT }}|g" \
+              -e "s|__INGRESS_EXTERNAL__|${{ inputs.INGRESS_EXTERNAL }}|g" \
+              -e "s|__RESOURCE_CPU__|${{ inputs.RESOURCE_CPU }}|g" \
+              -e "s|__RESOURCE_MEMORY__|${{ inputs.RESOURCE_MEMORY }}|g" \
+              -e "s|__SCALE_MIN_REPLICAS__|${{ inputs.SCALE_MIN_REPLICAS }}|g" \
+              -e "s|__SCALE_MAX_REPLICAS__|${{ inputs.SCALE_MAX_REPLICAS }}|g" \
+              -e "s|__SCALE_CONCURRENT_REQUESTS__|${{ inputs.SCALE_CONCURRENT_REQUESTS }}|g" \
+              -e "s|__AZURE_VAULT_NAME__|${{ inputs.AZURE_VAULT_NAME }}|g" \
+              -e "s|__AZURE_VAULT_BASE_URL__|https://${{ inputs.AZURE_VAULT_NAME }}.vault.azure.net/secrets|g" \
+              -e "s|__AZURE_IDENTITY__|/subscriptions/${{ env.AZURE_SUBSCRIPTION_ID }}/resourceGroups/${{ inputs.AZURE_RESOURCE_GROUP }}/providers/Microsoft.ManagedIdentity/userAssignedIdentities/mid-frc-iac|g" \
+              -e "s|__AZURE_ENVIRONMENT_ID__|/subscriptions/${{ env.AZURE_SUBSCRIPTION_ID }}/resourceGroups/${{ inputs.AZURE_RESOURCE_GROUP }}/providers/Microsoft.App/managedEnvironments/${{ env.AZURE_CONTAINERAPP_ENVIRONMENT_NAME }}|g" \
+              -e "s|__AZURE_SHARED_IDENTITY__|/subscriptions/${{ env.AZURE_SUBSCRIPTION_ID }}/resourceGroups/${{ inputs.AZURE_SHARED_RESOURCE_GROUP }}/providers/Microsoft.ManagedIdentity/userAssignedIdentities/mid-frc-iac|g" \
+              -e "s|__INFRA_ENV__|${{ inputs.INFRA_ENV }}|g" \
+              -e "s|__VERSION__|${{ github.sha }}|g" \
+              Infra/containerapp.yaml.tpl > Infra/containerapp.yaml
+          if [ "${{ inputs.DEBUG }}" = "true" ]; then
+            cat Infra/containerapp.yaml
+          fi
 
       - name: Login to Azure
         uses: azure/login@v2
@@ -154,63 +215,56 @@ jobs:
           subscription-id: ${{ env.AZURE_SUBSCRIPTION_ID }}
 
       - name: Log in to Azure Container Registry
-        run: az acr login --name ${{ env.AZURE_REGISTRY }}
+        run: az acr login --name ${{ inputs.AZURE_REGISTRY }}
 
       - name: Build and Push Docker image
         run: |
-          IMAGE_PATH=${{ env.AZURE_REGISTRY_FQDN }}/${{ inputs.PROJECT_NAME }}:${{ inputs.IMAGE_TAG }}
-          docker build -t ${IMAGE_PATH} . ${{ inputs.debug == 'true' && '' || '--quiet' }}
-          docker push ${IMAGE_PATH}
+          docker build -t ${{ env.IMAGE_PATH }} ${{ inputs.DOCKER_FILE_DIRECTORY }} ${{ inputs.debug == 'true' && '' || '--quiet' }}
+          docker push ${{ env.IMAGE_PATH }}
 
       - name: Create Container App Environment if missing
         run: |
           echo "🔍 Checking if Container App environment ${{ env.AZURE_CONTAINERAPP_ENVIRONMENT_NAME }} exists..."
-          if az containerapp env show \
+          if [ "${{ inputs.AZURE_CONTAINERAPP_ENVIRONMENT_FORCE_CREATE }}" = "false" ] && az containerapp env show \
             --name "${{ env.AZURE_CONTAINERAPP_ENVIRONMENT_NAME }}" \
-            --resource-group "${{ env.AZURE_RESOURCE_GROUP }}" \
+            --resource-group "${{ inputs.AZURE_RESOURCE_GROUP }}" \
             --query "name" \
             --only-show-errors > /dev/null 2>&1; then
             echo "✅ Container App environment '${{ env.AZURE_CONTAINERAPP_ENVIRONMENT_NAME }}' already exists"
           else
             echo "🏗️ Creating Container App environment '${{ env.AZURE_CONTAINERAPP_ENVIRONMENT_NAME }}'..."
-            az containerapp env create \
-                --name "${{ env.AZURE_CONTAINERAPP_ENVIRONMENT_NAME }}" \
-                --resource-group "${{ env.AZURE_RESOURCE_GROUP }}" \
-                --location "${{ inputs.AZURE_LOCATION }}" \
-                --internal-only true \
-                $([ -n "${{ inputs.AZURE_VNET_NAME }}" ] && [ -n "${{ inputs.AZURE_SUBNET_NAME }}" ] && echo "--infrastructure-subnet-resource-id \"/subscriptions/${{ env.AZURE_SUBSCRIPTION_ID }}/resourceGroups/${{ env.AZURE_RESOURCE_GROUP }}/providers/Microsoft.Network/virtualNetworks/${{ inputs.AZURE_VNET_NAME }}/subnets/${{ inputs.AZURE_SUBNET_NAME}}\"")
+            if [ -n "${{ inputs.AZURE_VNET_NAME }}" ] && [ -n "${{ inputs.AZURE_SUBNET_NAME }}" ]
+            then
+              if [ "${{ inputs.DEBUG }}" = "true" ]; then
+                echo 'az containerapp env create \
+                  --name "${{ env.AZURE_CONTAINERAPP_ENVIRONMENT_NAME }}" \
+                  --resource-group "${{ inputs.AZURE_RESOURCE_GROUP }}" \
+                  --location "${{ inputs.AZURE_LOCATION }}" \
+                  --internal-only ${{ inputs.AZURE_CONTAINERAPP_ENVIRONMENT_INTERNAL_ONLY }} \
+                  --infrastructure-subnet-resource-id "/subscriptions/${{ env.AZURE_SUBSCRIPTION_ID }}/resourceGroups/${{ inputs.AZURE_RESOURCE_GROUP }}/providers/Microsoft.Network/virtualNetworks/${{ inputs.AZURE_VNET_NAME }}/subnets/${{ inputs.AZURE_SUBNET_NAME}}"'
+              fi
+              az containerapp env create \
+                  --name "${{ env.AZURE_CONTAINERAPP_ENVIRONMENT_NAME }}" \
+                  --resource-group "${{ inputs.AZURE_RESOURCE_GROUP }}" \
+                  --location "${{ inputs.AZURE_LOCATION }}" \
+                  --internal-only ${{ inputs.AZURE_CONTAINERAPP_ENVIRONMENT_INTERNAL_ONLY }} \
+                  --infrastructure-subnet-resource-id "/subscriptions/${{ env.AZURE_SUBSCRIPTION_ID }}/resourceGroups/${{ inputs.AZURE_RESOURCE_GROUP }}/providers/Microsoft.Network/virtualNetworks/${{ inputs.AZURE_VNET_NAME }}/subnets/${{ inputs.AZURE_SUBNET_NAME}}"
+            else
+              az containerapp env create \
+                  --name "${{ env.AZURE_CONTAINERAPP_ENVIRONMENT_NAME }}" \
+                  --resource-group "${{ inputs.AZURE_RESOURCE_GROUP }}" \
+                  --location "${{ inputs.AZURE_LOCATION }}" \
+                  --internal-only ${{ inputs.AZURE_CONTAINERAPP_ENVIRONMENT_INTERNAL_ONLY }}
+            fi
             echo "✅ Container App environment created successfully"
-          fi
-
-      - name: Build containerapp.yaml
-        run: |
-          sed -e "s|__PROJECT_NAME__|${{ inputs.PROJECT_NAME }}|g" \
-              -e "s|__AZURE_LOCATION__|${{ inputs.AZURE_LOCATION }}|g" \
-              -e "s|__AZURE_SUBSCRIPTION_ID__|${{ env.AZURE_SUBSCRIPTION_ID }}|g" \
-              -e "s|__AZURE_SHARED_RESOURCE_GROUP__|${{ inputs.AZURE_SHARED_RESOURCE_GROUP }}|g" \
-              -e "s|__AZURE_RESOURCE_GROUP__|${{ env.AZURE_RESOURCE_GROUP }}|g" \
-              -e "s|__AZURE_CONTAINERAPP_ENVIRONMENT_NAME__|${{ env.AZURE_CONTAINERAPP_ENVIRONMENT_NAME }}|g" \
-              -e "s|__AZURE_REGISTRY_FQDN__|${{ env.AZURE_REGISTRY_FQDN }}|g" \
-              -e "s|__IMAGE_TAG__|${{ inputs.IMAGE_TAG }}|g" \
-              -e "s|__INGRESS_PORT__|${{ inputs.INGRESS_PORT }}|g" \
-              -e "s|__INGRESS_EXTERNAL__|${{ inputs.INGRESS_EXTERNAL }}|g" \
-              -e "s|__RESOURCE_CPU__|${{ inputs.RESOURCE_CPU }}|g" \
-              -e "s|__RESOURCE_MEMORY__|${{ inputs.RESOURCE_MEMORY }}|g" \
-              -e "s|__SCALE_MIN_REPLICATS__|${{ inputs.SCALE_MIN_REPLICATS }}|g" \
-              -e "s|__SCALE_MAX_REPLICATS__|${{ inputs.SCALE_MAX_REPLICATS }}|g" \
-              -e "s|__SCALE_CONCURRENT_REQUEST__|${{ inputs.SCALE_CONCURRENT_REQUEST }}|g" \
-              -e "s|__AZURE_VAULT_NAME__|${{ inputs.AZURE_VAULT_NAME }}|g" \
-              -e "s|__INFRA_ENV__|${{ inputs.INFRA_ENV }}|g" \
-              Infra/containerapp.yaml.tpl > Infra/containerapp.yaml
-          if [ "${{ inputs.DEBUG }}" = "true" ]; then
-            cat Infra/containerapp.yaml
           fi
 
       - name: Deploy Container App
         uses: azure/container-apps-deploy-action@v2
         with:
           azureCredentials: ${{ secrets.AZURE_CREDENTIALS }}
+          containerAppEnvironment: ${{ env.AZURE_CONTAINERAPP_ENVIRONMENT_NAME }}
           containerAppName: ${{ inputs.PROJECT_NAME }}
-          imageToDeploy: ${{ env.AZURE_REGISTRY_FQDN }}/${{ inputs.PROJECT_NAME }}:${{ inputs.IMAGE_TAG }}
-          resourceGroup: ${{ env.AZURE_RESOURCE_GROUP }}
+          imageToDeploy: ${{ env.IMAGE_PATH }}
+          resourceGroup: ${{ inputs.AZURE_RESOURCE_GROUP }}
           yamlConfigPath: ./Infra/containerapp.yaml
