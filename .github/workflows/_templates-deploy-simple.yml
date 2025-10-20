@@ -263,6 +263,7 @@ jobs:
         uses: azure/container-apps-deploy-action@v2
         with:
           azureCredentials: ${{ secrets.AZURE_CREDENTIALS }}
+          containerAppEnvironment: ${{ env.AZURE_CONTAINERAPP_ENVIRONMENT_NAME }}
           containerAppName: ${{ inputs.PROJECT_NAME }}
           imageToDeploy: ${{ env.IMAGE_PATH }}
           resourceGroup: ${{ inputs.AZURE_RESOURCE_GROUP }}
