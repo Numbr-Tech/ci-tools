@@ -26,7 +26,7 @@ on:
         description: ''
         required: false
         type: string
-        default: 'vnet-frc-legacy'
+        default: ''
       AZURE_SUBNET_NAME:
         description: ''
         required: false
