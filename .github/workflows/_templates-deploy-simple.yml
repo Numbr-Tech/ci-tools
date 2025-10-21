@@ -31,13 +31,13 @@ on:
         description: ''
         required: false
         type: string
-        default: 'subnet-app'
-      AZURE_REGISTRY: 
+        default: ''
+      AZURE_REGISTRY:
         description: 'Azure registry'
         required: false
         type: string
         default: ${{ inputs.INFRA_ENV == 'production' && 'nbtreg' || 'pprodnbtregistry' }}
-      AZURE_REGISTRY_FQDN: 
+      AZURE_REGISTRY_FQDN:
         description: 'Azure registry fqdn'
         required: false
         type: string
@@ -62,31 +62,6 @@ on:
         required: false
         type: boolean
         default: true
-      RESOURCE_CPU:
-        description: 'Resource CPU'
-        required: false
-        type: string
-        default: '0.5'
-      RESOURCE_MEMORY:
-        description: 'Resource memory'
-        required: false
-        type: string
-        default: '1.0Gi'
-      SCALE_MIN_REPLICAS:
-        description: 'Scale min replicats'
-        required: false
-        type: string
-        default: '1'
-      SCALE_MAX_REPLICAS:
-        description: 'Scale max replicats'
-        required: false
-        type: string
-        default: '1'
-      SCALE_CONCURRENT_REQUESTS:
-        description: 'Scale concurrent request'
-        required: false
-        type: string
-        default: '30'
       AZURE_VAULT_NAME:
         description: 'Azure vault name'
         required: false
@@ -133,7 +108,7 @@ jobs:
     env:
       AZURE_CONTAINERAPP_ENVIRONMENT_NAME: ${{ inputs.PROJECT_NAME }}-${{ inputs.INFRA_ENV }}-workspace
       AZURE_SUBSCRIPTION_ID: ${{ inputs.INFRA_ENV == 'production' && secrets.AZURE_SUBSCRIPTION_ID_PROD || secrets.AZURE_SUBSCRIPTION_ID_PPROD }}
-      IMAGE_PATH: ${{ inputs.AZURE_REGISTRY_FQDN }}/${{ inputs.PROJECT_NAME }}:${{ inputs.IMAGE_TAG }}
+      IMAGE_PATH: ${{ inputs.AZURE_REGISTRY_FQDN }}/${{ inputs.PROJECT_NAME }}-all:${{ inputs.IMAGE_TAG }}
     permissions:
       id-token: write
       contents: read
@@ -177,7 +152,13 @@ jobs:
         with:
           fetch-depth: 0
 
+      - name: Install dependencies
+        run: |
+          sudo wget -qO /usr/local/bin/yq https://github.com/mikefarah/yq/releases/latest/download/yq_linux_amd64
+          sudo chmod +x /usr/local/bin/yq
+
       - name: Build containerapp.yaml
+        id: build-containerapp-yaml
         run: |
           sed -e "s|__PROJECT_NAME__|${{ inputs.PROJECT_NAME }}|g" \
               -e "s|__AZURE_LOCATION__|${{ inputs.AZURE_LOCATION }}|g" \
@@ -190,11 +171,6 @@ jobs:
               -e "s|__IMAGE_PATH__|${{ env.IMAGE_PATH }}|g" \
               -e "s|__INGRESS_PORT__|${{ inputs.INGRESS_PORT }}|g" \
               -e "s|__INGRESS_EXTERNAL__|${{ inputs.INGRESS_EXTERNAL }}|g" \
-              -e "s|__RESOURCE_CPU__|${{ inputs.RESOURCE_CPU }}|g" \
-              -e "s|__RESOURCE_MEMORY__|${{ inputs.RESOURCE_MEMORY }}|g" \
-              -e "s|__SCALE_MIN_REPLICAS__|${{ inputs.SCALE_MIN_REPLICAS }}|g" \
-              -e "s|__SCALE_MAX_REPLICAS__|${{ inputs.SCALE_MAX_REPLICAS }}|g" \
-              -e "s|__SCALE_CONCURRENT_REQUESTS__|${{ inputs.SCALE_CONCURRENT_REQUESTS }}|g" \
               -e "s|__AZURE_VAULT_NAME__|${{ inputs.AZURE_VAULT_NAME }}|g" \
               -e "s|__AZURE_VAULT_BASE_URL__|https://${{ inputs.AZURE_VAULT_NAME }}.vault.azure.net/secrets|g" \
               -e "s|__AZURE_IDENTITY__|/subscriptions/${{ env.AZURE_SUBSCRIPTION_ID }}/resourceGroups/${{ inputs.AZURE_RESOURCE_GROUP }}/providers/Microsoft.ManagedIdentity/userAssignedIdentities/mid-frc-iac|g" \
@@ -203,9 +179,39 @@ jobs:
               -e "s|__INFRA_ENV__|${{ inputs.INFRA_ENV }}|g" \
               -e "s|__VERSION__|${{ github.sha }}|g" \
               Infra/containerapp.yaml.tpl > Infra/containerapp.yaml
+
+          for file in $(find ${{ inputs.DOCKER_FILE_DIRECTORY }} -type f -name "Dockerfile*"); do
+            COMPONENT=$(echo $file | sed -e 's|./Dockerfile-||g')
+            IMAGE_PATH=$(echo ${{ env.IMAGE_PATH }} | sed -e "s|-all:|-${COMPONENT}:|g")
+            COMPONENT=$(echo $COMPONENT | awk '{print toupper($0)}')
+            sed -i -e "s|__${COMPONENT}.IMAGE_PATH__|${IMAGE_PATH}|g" Infra/containerapp.yaml
+          done
+          
+          if [ -f Infra/${{ inputs.INFRA_ENV }}.yaml ]; then
+            FILE=Infra/${{ inputs.INFRA_ENV }}.yaml
+            MIN=$(yq ".autoscaling.min // 1" $FILE)
+            MAX=$(yq ".autoscaling.max // 1" $FILE)
+            CONCURRENT_REQUESTS=$(yq ".autoscaling.concurrent_requests // 30" $FILE)
+            sed -i -e "s|__SCALE_MIN_REPLICAS__|${MIN}|g" \
+                -e "s|__SCALE_MAX_REPLICAS__|${MAX}|g" \
+                -e "s|__SCALE_CONCURRENT_REQUESTS__|${CONCURRENT_REQUESTS}|g" \
+                Infra/containerapp.yaml
+
+            for component in $(yq ".components | keys[]" $FILE); do
+              COMPONENT=$(echo $component | awk '{print toupper($0)}')
+              CPU=$(yq ".components.${component}.resources.cpu // 0.5" $FILE)
+              MEMORY=$(yq ".components.${component}.resources.memory // \"1.0Gi\"" $FILE)
+              sed -i -e "s|__${COMPONENT}.RESOURCE_CPU__|${CPU}|g" \
+                  -e "s|__${COMPONENT}.RESOURCE_MEMORY__|${MEMORY}|g" \
+                  Infra/containerapp.yaml
+            done
+          fi
+
           if [ "${{ inputs.DEBUG }}" = "true" ]; then
+            echo "Displaying Infra/containerapp.yaml"
             cat Infra/containerapp.yaml
           fi
+          echo "end"
 
       - name: Login to Azure
         uses: azure/login@v2
@@ -219,8 +225,12 @@ jobs:
 
       - name: Build and Push Docker image
         run: |
-          docker build -t ${{ env.IMAGE_PATH }} ${{ inputs.DOCKER_FILE_DIRECTORY }} ${{ inputs.debug == 'true' && '' || '--quiet' }}
-          docker push ${{ env.IMAGE_PATH }}
+          for file in $(find ${{ inputs.DOCKER_FILE_DIRECTORY }} -type f -name "Dockerfile*"); do
+             COMPONENT=$(echo $file | sed -e 's|./Dockerfile-||g')
+             IMAGE_PATH=$(echo ${{ env.IMAGE_PATH }} | sed -e "s|-all:|-${COMPONENT}:|g")
+             docker build -t ${IMAGE_PATH} -f $file ${{ inputs.DOCKER_FILE_DIRECTORY }} ${{ inputs.debug == 'true' && '' || '--quiet' }}
+             docker push ${IMAGE_PATH}
+          done
 
       - name: Create Container App Environment if missing
         run: |
@@ -260,10 +270,10 @@ jobs:
           fi
 
       - name: Deploy Container App
+        id: deploy-container-app
         uses: azure/container-apps-deploy-action@v2
         with:
           azureCredentials: ${{ secrets.AZURE_CREDENTIALS }}
-          containerAppEnvironment: ${{ env.AZURE_CONTAINERAPP_ENVIRONMENT_NAME }}
           containerAppName: ${{ inputs.PROJECT_NAME }}
           imageToDeploy: ${{ env.IMAGE_PATH }}
           resourceGroup: ${{ inputs.AZURE_RESOURCE_GROUP }}
