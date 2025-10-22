@@ -35,14 +35,19 @@
     #      max: '10'
     #      concurrent_requests: '30'
         components:
+          php: ~
           nginx: ~
     #        resources:
     #          cpu: '0.25'
     #          memory: '0.5Gi'
       staging:
         components:
+          php: ~
           nginx: ~
     ```
+3. Créer vos Dockerfile. Ils doivent suivre cette règle de nomage : `Dockerfile.{{ components_name }}`. Dans notre exemple, compenent_name peut prendre les valeurs nginx ou php.
+ 
+   Via`<project>-<coponent>:<port>`, vous pouvez accéder à un container. Dans notre exemple cela donnerait : `hiive-api-php:9000`.
 
 4. Ajouter dans votre projet un fichier `.github/workflows/deploy.yml`.
 
