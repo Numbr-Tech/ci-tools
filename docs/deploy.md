@@ -2,18 +2,18 @@
 
 1. Dupliquer le ticket https://manakin.atlassian.net/browse/NT-31 et mettre à jour les informations. Informerles devops (Gregory CADICI)
 
-2. Créer un fichier Infra/values.yaml
+2. Créer un fichier Infra/values.yaml afin de spécifier vos resources Azure.
 
     ```yaml
-    name: "giwb-api"
+    name: "hiive-api"
     #location: "francecentral"
     #vnet:
-    #  name: "vnet-frc-legacy"
+    #  name: "vnet-frc-hiive-api"
     #  subnet:
     #    name: "subnet-app"
     #resourceGroup:
     #  current:
-    #    name: "rg-frc-legacy"
+    #    name: "rg-frc-hiive"
     #  shared:
     #    name: "rg-frc-pprodgeneral"
     #appEnv:
@@ -21,8 +21,8 @@
     #ingress:
     #  port: 80
     #  external: true
-    vault:
-      #name: "key-frc-legacy"
+    #vault:
+    #  name: "key-frc-hiive"
     envVariables:
       - name: MY_VAR
         value: "foo"
