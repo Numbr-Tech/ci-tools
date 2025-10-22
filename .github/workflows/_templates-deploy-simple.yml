@@ -3,80 +3,26 @@ name: deploy
 on:
   workflow_call:
     inputs:
-      PROJECT_NAME:
-        description: 'Project name'
-        required: true
-        type: string
-      AZURE_LOCATION:
-        description: 'Azure location'
-        required: false
-        type: string
-        default: 'francecentral'
-      AZURE_SHARED_RESOURCE_GROUP:
-        description: 'Azure shared resource group'
-        required: false
-        type: string
-        default: 'rg-frc-pprodgeneral'
-      AZURE_RESOURCE_GROUP:
-        description: 'Azure resource group'
-        required: false
-        type: string
-        default: 'rg-frc-legacy'
-      AZURE_VNET_NAME:
-        description: ''
-        required: false
-        type: string
-        default: ''
-      AZURE_SUBNET_NAME:
-        description: ''
-        required: false
-        type: string
-        default: ''
-      AZURE_REGISTRY:
-        description: 'Azure registry'
-        required: false
-        type: string
-        default: ${{ inputs.INFRA_ENV == 'production' && 'nbtreg' || 'pprodnbtregistry' }}
-      AZURE_REGISTRY_FQDN:
-        description: 'Azure registry fqdn'
-        required: false
-        type: string
-        default: ${{ inputs.INFRA_ENV == 'production' && 'nbtreg' || 'pprodnbtregistry-aucgecdkece6b5d7' }}.azurecr.io
-      AZURE_CONTAINERAPP_ENVIRONMENT_FORCE_CREATE:
-        description: 'Force create container app environment'
-        required: false
-        type: boolean
-        default: false
-      AZURE_CONTAINERAPP_ENVIRONMENT_INTERNAL_ONLY:
-        description: 'Azure container app environment internal only'
-        required: false
-        type: boolean
-        default: false
-      INGRESS_PORT:
-        description: 'Ingress port'
-        required: false
-        type: string
-        default: '80'
-      INGRESS_EXTERNAL:
-        description: 'Ingress external'
-        required: false
-        type: boolean
-        default: true
-      AZURE_VAULT_NAME:
-        description: 'Azure vault name'
-        required: false
-        type: string
-        default: 'key-frc-legacy'
-      IMAGE_TAG:
-        description: 'Image tag'
-        required: false
-        type: string
-        default: '${{ github.sha }}'
       INFRA_ENV:
         description: 'Infra environment'
         required: false
         type: string
         default: "${{ github.ref_name == 'main' && 'production' || 'staging' }}"
+      IMAGE_TAG:
+        description: 'Image tag'
+        required: false
+        type: string
+        default: '${{ github.sha }}'
+      VERSION:
+        description: 'Version'
+        required: false
+        type: string
+        default: '${{ github.sha }}'
+      AZURE_CONTAINERAPP_ENVIRONMENT_FORCE_CREATE:
+        description: 'Force create container app environment'
+        required: false
+        type: boolean
+        default: false
       DOCKER_FILE_DIRECTORY:
         description: 'Docker file directory'
         required: false
@@ -105,166 +51,123 @@ jobs:
   deploy:
     runs-on: ubuntu-latest
     environment: ${{ github.ref_name == 'main' && 'production' || 'staging' }}
-    env:
-      AZURE_CONTAINERAPP_ENVIRONMENT_NAME: ${{ inputs.PROJECT_NAME }}-${{ inputs.INFRA_ENV }}-workspace
-      AZURE_SUBSCRIPTION_ID: ${{ inputs.INFRA_ENV == 'production' && secrets.AZURE_SUBSCRIPTION_ID_PROD || secrets.AZURE_SUBSCRIPTION_ID_PPROD }}
-      IMAGE_PATH: ${{ inputs.AZURE_REGISTRY_FQDN }}/${{ inputs.PROJECT_NAME }}-all:${{ inputs.IMAGE_TAG }}
     permissions:
       id-token: write
       contents: read
     steps:
-      - name: debug
-        if: inputs.DEBUG == true
-        run: |
-            echo "========================"
-            echo "=        INPUTS        ="
-            echo "========================"
-            echo "DEBUG: ${{ inputs.DEBUG }}"
-            echo "INFRA_ENV: ${{ inputs.INFRA_ENV }}"
-            echo "PROJECT_NAME: ${{ inputs.PROJECT_NAME }}"
-            echo "AZURE_LOCATION: ${{ inputs.AZURE_LOCATION }}"
-            echo "AZURE_RESOURCE_GROUP: ${{ inputs.AZURE_RESOURCE_GROUP }}"
-            echo "AZURE_SHARED_RESOURCE_GROUP: ${{ inputs.AZURE_SHARED_RESOURCE_GROUP }}"
-            echo "AZURE_VNET_NAME: ${{ inputs.AZURE_VNET_NAME }}"
-            echo "AZURE_SUBNET_NAME: ${{ inputs.AZURE_SUBNET_NAME }}"
-            echo "AZURE_VAULT_NAME: ${{ inputs.AZURE_VAULT_NAME }}"
-            echo "AZURE_REGISTRY: ${{ inputs.AZURE_REGISTRY }}"
-            echo "AZURE_REGISTRY_FQDN: ${{ inputs.AZURE_REGISTRY_FQDN }}"
-            echo "IMAGE_TAG: ${{ inputs.IMAGE_TAG }}"
-            echo "INGRESS_PORT: ${{ inputs.INGRESS_PORT }}"
-            echo "INGRESS_EXTERNAL: ${{ inputs.INGRESS_EXTERNAL }}"
-            echo "RESOURCE_CPU: ${{ inputs.RESOURCE_CPU }}"
-            echo "RESOURCE_MEMORY: ${{ inputs.RESOURCE_MEMORY }}"
-            echo "SCALE_MIN_REPLICAS: ${{ inputs.SCALE_MIN_REPLICAS }}"
-            echo "SCALE_MAX_REPLICAS: ${{ inputs.SCALE_MAX_REPLICAS }}"
-            echo "SCALE_CONCURRENT_REQUESTS: ${{ inputs.SCALE_CONCURRENT_REQUESTS }}"
-            echo "========================"
-            echo "=        ENV           ="
-            echo "========================"
-            echo "AZURE_CONTAINERAPP_ENVIRONMENT_NAME: ${{ env.AZURE_CONTAINERAPP_ENVIRONMENT_NAME }}"
-            echo "AZURE_CONTAINERAPP_ENVIRONMENT_FORCE_CREATE: ${{ inputs.AZURE_CONTAINERAPP_ENVIRONMENT_FORCE_CREATE }}"
-            echo "AZURE_CONTAINERAPP_ENVIRONMENT_INTERNAL_ONLY: ${{ inputs.AZURE_CONTAINERAPP_ENVIRONMENT_INTERNAL_ONLY }}"
-            echo "AZURE_SUBSCRIPTION_ID: ${{ env.AZURE_SUBSCRIPTION_ID }}"
-            echo "IMAGE_PATH: ${{ env.IMAGE_PATH }}"
-
       - name: Checkout
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
+
+      - name: Checkout ci-tools repository
+        uses: actions/checkout@v4
+        with:
+          repository: Numbr-Tech/ci-tools
+          ref: v2
+          path: ci-tools
+          token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Install dependencies
         run: |
           sudo wget -qO /usr/local/bin/yq https://github.com/mikefarah/yq/releases/latest/download/yq_linux_amd64
           sudo chmod +x /usr/local/bin/yq
 
+      - name: Pre-execute - Set environment variables
+        id: set-env
+        run: |
+          PROJECT_NAME=$(yq '.name' Infra/values.yaml)
+          AZURE_CONTAINERAPP_ENVIRONMENT_NAME=${PROJECT_NAME}-${{ inputs.INFRA_ENV }}-workspace
+          AZURE_RESOURCE_GROUP=$(yq '.resourceGroup.current.name // "rg-frc-legacy"' Infra/values.yaml)
+          AZURE_REGISTRY=${{ inputs.INFRA_ENV == 'production' && 'nbtreg' || 'pprodnbtregistry' }}
+          AZURE_REGISTRY_FQDN=${{ inputs.INFRA_ENV == 'production' && 'nbtreg' || 'pprodnbtregistry-aucgecdkece6b5d7' }}.azurecr.io
+          AZURE_SUBSCRIPTION_ID=${{ inputs.INFRA_ENV == 'production' && secrets.AZURE_SUBSCRIPTION_ID_PROD || secrets.AZURE_SUBSCRIPTION_ID_PPROD }}
+          echo "PROJECT_NAME=$PROJECT_NAME" >> $GITHUB_ENV
+          echo "AZURE_CONTAINERAPP_ENVIRONMENT_NAME=$AZURE_CONTAINERAPP_ENVIRONMENT_NAME" >> $GITHUB_ENV
+          echo "AZURE_RESOURCE_GROUP=$AZURE_RESOURCE_GROUP" >> $GITHUB_ENV
+          echo "AZURE_REGISTRY=$AZURE_REGISTRY" >> $GITHUB_ENV
+          echo "AZURE_REGISTRY_FQDN=$AZURE_REGISTRY_FQDN" >> $GITHUB_ENV
+          echo "AZURE_SUBSCRIPTION_ID=$AZURE_SUBSCRIPTION_ID" >> $GITHUB_ENV
+          echo "PROJECT_NAME=$PROJECT_NAME" >> $GITHUB_OUTPUT
+          echo "AZURE_CONTAINERAPP_ENVIRONMENT_NAME=$AZURE_CONTAINERAPP_ENVIRONMENT_NAME" >> $GITHUB_OUTPUT
+          echo "AZURE_RESOURCE_GROUP=$AZURE_RESOURCE_GROUP" >> $GITHUB_OUTPUT
+          echo "AZURE_REGISTRY=$AZURE_REGISTRY" >> $GITHUB_OUTPUT
+          echo "AZURE_REGISTRY_FQDN=$AZURE_REGISTRY_FQDN" >> $GITHUB_OUTPUT
+          echo "AZURE_SUBSCRIPTION_ID=$AZURE_SUBSCRIPTION_ID" >> $GITHUB_OUTPUT
+
       - name: Build containerapp.yaml
         id: build-containerapp-yaml
         run: |
-          sed -e "s|__PROJECT_NAME__|${{ inputs.PROJECT_NAME }}|g" \
-              -e "s|__AZURE_LOCATION__|${{ inputs.AZURE_LOCATION }}|g" \
-              -e "s|__AZURE_SUBSCRIPTION_ID__|${{ env.AZURE_SUBSCRIPTION_ID }}|g" \
-              -e "s|__AZURE_SHARED_RESOURCE_GROUP__|${{ inputs.AZURE_SHARED_RESOURCE_GROUP }}|g" \
-              -e "s|__AZURE_RESOURCE_GROUP__|${{ inputs.AZURE_RESOURCE_GROUP }}|g" \
-              -e "s|__AZURE_CONTAINERAPP_ENVIRONMENT_NAME__|${{ env.AZURE_CONTAINERAPP_ENVIRONMENT_NAME }}|g" \
-              -e "s|__AZURE_REGISTRY_FQDN__|${{ inputs.AZURE_REGISTRY_FQDN }}|g" \
-              -e "s|__IMAGE_TAG__|${{ inputs.IMAGE_TAG }}|g" \
-              -e "s|__IMAGE_PATH__|${{ env.IMAGE_PATH }}|g" \
-              -e "s|__INGRESS_PORT__|${{ inputs.INGRESS_PORT }}|g" \
-              -e "s|__INGRESS_EXTERNAL__|${{ inputs.INGRESS_EXTERNAL }}|g" \
-              -e "s|__AZURE_VAULT_NAME__|${{ inputs.AZURE_VAULT_NAME }}|g" \
-              -e "s|__AZURE_VAULT_BASE_URL__|https://${{ inputs.AZURE_VAULT_NAME }}.vault.azure.net/secrets|g" \
-              -e "s|__AZURE_IDENTITY__|/subscriptions/${{ env.AZURE_SUBSCRIPTION_ID }}/resourceGroups/${{ inputs.AZURE_RESOURCE_GROUP }}/providers/Microsoft.ManagedIdentity/userAssignedIdentities/mid-frc-iac|g" \
-              -e "s|__AZURE_ENVIRONMENT_ID__|/subscriptions/${{ env.AZURE_SUBSCRIPTION_ID }}/resourceGroups/${{ inputs.AZURE_RESOURCE_GROUP }}/providers/Microsoft.App/managedEnvironments/${{ env.AZURE_CONTAINERAPP_ENVIRONMENT_NAME }}|g" \
-              -e "s|__AZURE_SHARED_IDENTITY__|/subscriptions/${{ env.AZURE_SUBSCRIPTION_ID }}/resourceGroups/${{ inputs.AZURE_SHARED_RESOURCE_GROUP }}/providers/Microsoft.ManagedIdentity/userAssignedIdentities/mid-frc-iac|g" \
-              -e "s|__INFRA_ENV__|${{ inputs.INFRA_ENV }}|g" \
-              -e "s|__VERSION__|${{ github.sha }}|g" \
-              Infra/containerapp.yaml.tpl > Infra/containerapp.yaml
-
-          for file in $(find ${{ inputs.DOCKER_FILE_DIRECTORY }} -type f -name "Dockerfile*"); do
-            COMPONENT=$(echo $file | sed -e 's|./Dockerfile-||g')
-            IMAGE_PATH=$(echo ${{ env.IMAGE_PATH }} | sed -e "s|-all:|-${COMPONENT}:|g")
-            COMPONENT=$(echo $COMPONENT | awk '{print toupper($0)}')
-            sed -i -e "s|__${COMPONENT}.IMAGE_PATH__|${IMAGE_PATH}|g" Infra/containerapp.yaml
-          done
-          
-          if [ -f Infra/${{ inputs.INFRA_ENV }}.yaml ]; then
-            FILE=Infra/${{ inputs.INFRA_ENV }}.yaml
-            MIN=$(yq ".autoscaling.min // 1" $FILE)
-            MAX=$(yq ".autoscaling.max // 1" $FILE)
-            CONCURRENT_REQUESTS=$(yq ".autoscaling.concurrent_requests // 30" $FILE)
-            sed -i -e "s|__SCALE_MIN_REPLICAS__|${MIN}|g" \
-                -e "s|__SCALE_MAX_REPLICAS__|${MAX}|g" \
-                -e "s|__SCALE_CONCURRENT_REQUESTS__|${CONCURRENT_REQUESTS}|g" \
-                Infra/containerapp.yaml
-
-            for component in $(yq ".components | keys[]" $FILE); do
-              COMPONENT=$(echo $component | awk '{print toupper($0)}')
-              CPU=$(yq ".components.${component}.resources.cpu // 0.5" $FILE)
-              MEMORY=$(yq ".components.${component}.resources.memory // \"1.0Gi\"" $FILE)
-              sed -i -e "s|__${COMPONENT}.RESOURCE_CPU__|${CPU}|g" \
-                  -e "s|__${COMPONENT}.RESOURCE_MEMORY__|${MEMORY}|g" \
-                  Infra/containerapp.yaml
-            done
-          fi
-
-          if [ "${{ inputs.DEBUG }}" = "true" ]; then
-            echo "Displaying Infra/containerapp.yaml"
-            cat Infra/containerapp.yaml
-          fi
-          echo "end"
+          DEBUG_FLAG=$('${{ inputs.DEBUG }}' = 'true' && echo '--debug' || echo '')
+          ci-tools/src/modules/deploy/build-containerapp-yaml.sh \
+            --env ${{ inputs.INFRA_ENV }} \
+            --version ${{ inputs.VERSION }} \
+            --container-app-environment-name ${{ steps.set-env.outputs.AZURE_CONTAINERAPP_ENVIRONMENT_NAME }} \
+            --registry-fqdn ${{ steps.set-env.outputs.AZURE_REGISTRY_FQDN }} \
+            --resource-group ${{ steps.set-env.outputs.AZURE_RESOURCE_GROUP }} \
+            --subscription-id ${{ steps.set-env.outputs.AZURE_SUBSCRIPTION_ID }} \
+            --image-tag ${{ inputs.IMAGE_TAG }} \
+            $DEBUG_FLAG
 
       - name: Login to Azure
         uses: azure/login@v2
         with:
           client-id: ${{ secrets.AZURE_CLIENT_ID }}
           tenant-id: ${{ secrets.AZURE_TENANT_ID }}
-          subscription-id: ${{ env.AZURE_SUBSCRIPTION_ID }}
+          subscription-id: ${{ steps.set-env.outputs.AZURE_SUBSCRIPTION_ID }}
 
       - name: Log in to Azure Container Registry
-        run: az acr login --name ${{ inputs.AZURE_REGISTRY }}
+        run: az acr login --name ${{ steps.set-env.outputs.AZURE_REGISTRY }}
 
       - name: Build and Push Docker image
         run: |
-          for file in $(find ${{ inputs.DOCKER_FILE_DIRECTORY }} -type f -name "Dockerfile*"); do
-             COMPONENT=$(echo $file | sed -e 's|./Dockerfile-||g')
-             IMAGE_PATH=$(echo ${{ env.IMAGE_PATH }} | sed -e "s|-all:|-${COMPONENT}:|g")
-             docker build -t ${IMAGE_PATH} -f $file ${{ inputs.DOCKER_FILE_DIRECTORY }} ${{ inputs.debug == 'true' && '' || '--quiet' }}
-             docker push ${IMAGE_PATH}
+          # Get the number of containers
+          CONTAINER_COUNT=$(yq '.template.containers | length' Infra/containerapp.yaml)
+          
+          # Loop through each container by index
+          for i in $(seq 0 $((CONTAINER_COUNT - 1))); do
+            NAME=$(yq ".template.containers[$i].name" Infra/containerapp.yaml | sed "s/${{ steps.set-env.outputs.PROJECT_NAME }}-//")
+            IMAGE_PATH=$(yq ".template.containers[$i].image" Infra/containerapp.yaml)
+            if [ '${{ inputs.DEBUG }}' = 'true' ]; then
+              echo "Building and pushing container '$NAME' with image path '$IMAGE_PATH'"
+            fi
+            docker build -t ${IMAGE_PATH} -f ${{ inputs.DOCKER_FILE_DIRECTORY }}/Dockerfile-${NAME} ${{ inputs.DOCKER_FILE_DIRECTORY }} ${{ inputs.debug == 'true' && '' || '--quiet' }}
+            docker push ${IMAGE_PATH}
           done
 
       - name: Create Container App Environment if missing
         run: |
-          echo "🔍 Checking if Container App environment ${{ env.AZURE_CONTAINERAPP_ENVIRONMENT_NAME }} exists..."
+          AZURE_CONTAINERAPP_ENVIRONMENT_NAME=${{ steps.set-env.outputs.AZURE_CONTAINERAPP_ENVIRONMENT_NAME }}
+          AZURE_LOCATION=$(yq '.location' Infra/values.yaml)
+          AZURE_VNET_NAME=$(yq '.vnet.name' Infra/values.yaml)
+          AZURE_SUBNET_NAME=$(yq '.vnet.subnet.name' Infra/values.yaml)
+          AZURE_CONTAINERAPP_ENVIRONMENT_INTERNAL_ONLY=$(yq '.appEnv.internalOnly // false' Infra/values.yaml)
           if [ "${{ inputs.AZURE_CONTAINERAPP_ENVIRONMENT_FORCE_CREATE }}" = "false" ] && az containerapp env show \
-            --name "${{ env.AZURE_CONTAINERAPP_ENVIRONMENT_NAME }}" \
-            --resource-group "${{ inputs.AZURE_RESOURCE_GROUP }}" \
+            --name "${AZURE_CONTAINERAPP_ENVIRONMENT_NAME}" \
+            --resource-group "${{ steps.set-env.outputs.AZURE_RESOURCE_GROUP }}" \
             --query "name" \
             --only-show-errors > /dev/null 2>&1; then
-            echo "✅ Container App environment '${{ env.AZURE_CONTAINERAPP_ENVIRONMENT_NAME }}' already exists"
+            echo "✅ Container App environment '${AZURE_CONTAINERAPP_ENVIRONMENT_NAME}' already exists"
           else
-            echo "🏗️ Creating Container App environment '${{ env.AZURE_CONTAINERAPP_ENVIRONMENT_NAME }}'..."
-            if [ -n "${{ inputs.AZURE_VNET_NAME }}" ] && [ -n "${{ inputs.AZURE_SUBNET_NAME }}" ]
+            echo "🏗️ Creating Container App environment '${AZURE_CONTAINERAPP_ENVIRONMENT_NAME}'..."
+            AZURE_INFRASUBNET_RESOURCE_ID=""
+            if [ -n "${AZURE_VNET_NAME}" ] && [ -n "${AZURE_SUBNET_NAME}" ]
             then
-              if [ "${{ inputs.DEBUG }}" = "true" ]; then
-                echo 'az containerapp env create \
-                  --name "${{ env.AZURE_CONTAINERAPP_ENVIRONMENT_NAME }}" \
-                  --resource-group "${{ inputs.AZURE_RESOURCE_GROUP }}" \
-                  --location "${{ inputs.AZURE_LOCATION }}" \
-                  --internal-only ${{ inputs.AZURE_CONTAINERAPP_ENVIRONMENT_INTERNAL_ONLY }} \
-                  --infrastructure-subnet-resource-id "/subscriptions/${{ env.AZURE_SUBSCRIPTION_ID }}/resourceGroups/${{ inputs.AZURE_RESOURCE_GROUP }}/providers/Microsoft.Network/virtualNetworks/${{ inputs.AZURE_VNET_NAME }}/subnets/${{ inputs.AZURE_SUBNET_NAME}}"'
-              fi
+              AZURE_INFRASUBNET_RESOURCE_ID="/subscriptions/${{ steps.set-env.outputs.AZURE_SUBSCRIPTION_ID }}/resourceGroups/${{ steps.set-env.outputs.AZURE_RESOURCE_GROUP }}/providers/Microsoft.Network/virtualNetworks/${AZURE_VNET_NAME}/subnets/${AZURE_SUBNET_NAME}"
+            fi
+            if [ -n "${AZURE_INFRASUBNET_RESOURCE_ID}" ]; then
               az containerapp env create \
-                  --name "${{ env.AZURE_CONTAINERAPP_ENVIRONMENT_NAME }}" \
-                  --resource-group "${{ inputs.AZURE_RESOURCE_GROUP }}" \
-                  --location "${{ inputs.AZURE_LOCATION }}" \
-                  --internal-only ${{ inputs.AZURE_CONTAINERAPP_ENVIRONMENT_INTERNAL_ONLY }} \
-                  --infrastructure-subnet-resource-id "/subscriptions/${{ env.AZURE_SUBSCRIPTION_ID }}/resourceGroups/${{ inputs.AZURE_RESOURCE_GROUP }}/providers/Microsoft.Network/virtualNetworks/${{ inputs.AZURE_VNET_NAME }}/subnets/${{ inputs.AZURE_SUBNET_NAME}}"
+                  --name "${AZURE_CONTAINERAPP_ENVIRONMENT_NAME}" \
+                  --resource-group "${{ steps.set-env.outputs.AZURE_RESOURCE_GROUP }}" \
+                  --location "${AZURE_LOCATION}" \
+                  --internal-only ${AZURE_CONTAINERAPP_ENVIRONMENT_INTERNAL_ONLY} \
+                  --infrastructure-subnet-resource-id "${AZURE_INFRASUBNET_RESOURCE_ID}"
             else
               az containerapp env create \
-                  --name "${{ env.AZURE_CONTAINERAPP_ENVIRONMENT_NAME }}" \
-                  --resource-group "${{ inputs.AZURE_RESOURCE_GROUP }}" \
-                  --location "${{ inputs.AZURE_LOCATION }}" \
-                  --internal-only ${{ inputs.AZURE_CONTAINERAPP_ENVIRONMENT_INTERNAL_ONLY }}
+                  --name "${AZURE_CONTAINERAPP_ENVIRONMENT_NAME}" \
+                  --resource-group "${{ steps.set-env.outputs.AZURE_RESOURCE_GROUP }}" \
+                  --location "${AZURE_LOCATION}" \
+                  --internal-only ${AZURE_CONTAINERAPP_ENVIRONMENT_INTERNAL_ONLY}
             fi
             echo "✅ Container App environment created successfully"
           fi
@@ -274,7 +177,6 @@ jobs:
         uses: azure/container-apps-deploy-action@v2
         with:
           azureCredentials: ${{ secrets.AZURE_CREDENTIALS }}
-          containerAppName: ${{ inputs.PROJECT_NAME }}
-          imageToDeploy: ${{ env.IMAGE_PATH }}
-          resourceGroup: ${{ inputs.AZURE_RESOURCE_GROUP }}
+          containerAppName: ${{ steps.set-env.outputs.PROJECT_NAME }}
+          resourceGroup: ${{ steps.set-env.outputs.AZURE_RESOURCE_GROUP }}
           yamlConfigPath: ./Infra/containerapp.yaml
