@@ -64,7 +64,7 @@ jobs:
         uses: actions/checkout@v4
         with:
           repository: Numbr-Tech/ci-tools
-          ref: feat/v2-simplify
+          ref: v2
           path: ci-tools
           token: ${{ secrets.GITHUB_TOKEN }}
 
