@@ -214,8 +214,7 @@ fi
 ############################
 echo_title "Creating Container App '${FULL_NAME}'..."
 
-run_command az containerapp create \
+run_command az containerapp update \
   --name "$FULL_NAME" \
   --resource-group "$AZURE_RESOURCE_GROUP_NAME" \
-  --yaml "$YAML_CONFIG_PATH" \
-  --environment $(yq '.properties.environmentId' "$YAML_CONFIG_PATH" | tr -d '"')
+  --yaml "$YAML_CONFIG_PATH"
