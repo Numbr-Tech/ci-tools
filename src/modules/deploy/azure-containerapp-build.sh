@@ -109,7 +109,7 @@ function run_command() {
     local CMD=("$@")
     local COMMAND_NAME="${CMD[0]}"
     local COLOR="$CYAN"
-    
+
     # Déterminer la couleur selon le type de commande
     case "$COMMAND_NAME" in
         "docker")
@@ -122,7 +122,6 @@ function run_command() {
             local ICON="⚙️"
             ;;
     esac
-
     local WORDING="Executing"
 
     if [ "$DRY_RUN" = "true" ]; then
@@ -136,12 +135,38 @@ function run_command() {
     fi
     
     "${CMD[@]}"
+
+    return $?
 }
 
 function echo_title() {
     echo -e "\n\n${YELLOW}================================================================================${NC}"
     echo -e "${YELLOW}|${NC}    ${CYAN}${BOLD}$1${NC}"
     echo -e "${YELLOW}================================================================================${NC}\n"
+}
+
+function check_image_exists() {
+    # @todo fix it
+    return 1
+
+    local image_path="$1"
+    local registry_fqdn="$2"
+    
+    # Extraire le nom du registry et le repository/tag de l'image
+    local image_without_registry="${image_path#*/}"
+    local repository="${image_without_registry%:*}"
+    local tag="${image_without_registry##*:}"
+
+    echo -e "    ${CYAN}📦${NC} ${BOLD}Checking${NC}${BOLD} image path${NC} ${CYAN}'$image_path'${NC}"
+    run_command az acr repository show-tags \
+        --name "${registry_fqdn%%.*}" \
+        --repository "$repository" \
+        --query "[?name=='$tag']" \
+        --output tsv; 
+        #pprodnbtregistry
+
+    # Vérifier si l'image existe dans le registry Azure
+    return $?
 }
 
 #############################
@@ -175,10 +200,16 @@ echo_title "Building $CONTAINER_COUNT container(s) image(s) for container app '$
 for i in $(seq 0 $((CONTAINER_COUNT - 1))); do
   NAME=$(yq ".template.containers[$i].name" $YAML_CONFIG_PATH | sed "s/${FULL_NAME}-//")
   IMAGE_PATH=$(yq ".template.containers[$i].image" $YAML_CONFIG_PATH)
-  echo -e "    ${CYAN}📦${NC} ${BOLD}Building and pushing container:${NC} ${WHITE}'$NAME'${NC} ${BOLD}with image path:${NC} ${CYAN}'$IMAGE_PATH'${NC}"
-  QUIET_FLAG=$([ "$DEBUG" = 'true' ] && echo '' || echo '--quiet')
-  run_command docker build -t "$IMAGE_PATH" -f "$DOCKER_FILE_DIRECTORY/Dockerfile-$NAME" "$DOCKER_FILE_DIRECTORY" $QUIET_FLAG
-  run_command docker push $IMAGE_PATH $QUIET_FLAG
+  
+  # Vérifier si l'image existe déjà dans le registry
+  if check_image_exists "$IMAGE_PATH" "$AZURE_REGISTRY_FQDN"; then
+    echo -e "    ${GREEN}✅${NC} ${BOLD}Image already exists in registry, skipping build and push${NC}"
+  else
+    echo -e "    ${YELLOW}🔨${NC} ${BOLD}Image not found, building and pushing container:${NC} ${WHITE}'$NAME'${NC}"
+    QUIET_FLAG=$([ "$DEBUG" = 'true' ] && echo '' || echo '--quiet')
+    run_command docker build -t "$IMAGE_PATH" -f "$DOCKER_FILE_DIRECTORY/Dockerfile-$NAME" "$DOCKER_FILE_DIRECTORY" $QUIET_FLAG
+    run_command docker push $IMAGE_PATH $QUIET_FLAG
+  fi
 done
 
 ############################
