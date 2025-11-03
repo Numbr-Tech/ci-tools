@@ -13,6 +13,8 @@ show_help() {
     echo "  --resource-group   Spécifier le nom du groupe de ressources"
     echo "  --image-tag        Spécifier le tag de l'image Docker (défaut: latest)"
     echo "  --version          Spécifier la version (défaut: image-tag)"
+    echo "  --values-file      Spécifier le chemin du fichier de value (défaut: ./Infra/values.yaml)"
+    echo "  --output-file      Spécifier le chemin du fichier yaml de sortie (défaut: ./Infra/containerapp.yaml)"
     echo "  --debug            Activer le mode debug"
     echo "  -h, --help         Afficher cette aide"
     echo ""
@@ -39,7 +41,7 @@ while [[ $# -gt 0 ]]; do
             shift 2
             ;;
         --resource-group)
-            RESOURCE_GROUP_NAME="$2"
+            AZURE_RESOURCE_GROUP_NAME="$2"
             shift 2
             ;;
         --version)
@@ -48,6 +50,14 @@ while [[ $# -gt 0 ]]; do
             ;;
         --image-tag)
             IMAGE_TAG="$2"
+            shift 2
+            ;;
+        --output-file)
+            OUTPUT_FILE="$2"
+            shift 2
+            ;;
+        --values-file)
+            VALUES_FILE="$2"
             shift 2
             ;;
         --debug)
@@ -82,7 +92,7 @@ if [ -z "$AZURE_REGISTRY_FQDN" ]; then
     exit 1
 fi
 
-if [ -z "$RESOURCE_GROUP_NAME" ]; then
+if [ -z "$AZURE_RESOURCE_GROUP_NAME" ]; then
     echo "Erreur: Le nom du groupe de ressources n'est pas spécifié"
     show_help
     exit 1
@@ -94,8 +104,8 @@ if [ -z "$AZURE_CONTAINERAPP_ENVIRONMENT_NAME" ]; then
     exit 1
 fi
 
-VALUES_FILE="./Infra/values.yaml"
-OUTPUT_FILE="./Infra/containerapp.yaml"
+VALUES_FILE=${VALUES_FILE:-"./Infra/values.yaml"}
+OUTPUT_FILE=${OUTPUT_FILE:-"./Infra/containerapp.yaml"}
 
 if [ -f "$OUTPUT_FILE" ]; then
     echo "Le fichier $OUTPUT_FILE existe déjà. Pas de génération nécessaire."
@@ -113,16 +123,16 @@ if ! command -v yq &> /dev/null; then
     exit 1
 fi
 
-echo "Génération du $OUTPUT_FILE depuis $VALUES_FILE pour l'environnement: $ENVIRONMENT"
-
 # Extraire les valeurs depuis values.yaml
-PROJECT_NAME=$(yq ".name" "$VALUES_FILE")
+PROJECT_NAME=$(yq ".project" "$VALUES_FILE")
+APPLI_NAME=$(yq ".appli" "$VALUES_FILE")
+FULL_NAME=${ENVIRONMENT}-${PROJECT_NAME}-${APPLI_NAME}
 LOCATION=$(yq ".location // \"francecentral\"" "$VALUES_FILE")
 SHARED_IDENTITY_ID=$(yq ".identity.url // \"/subscriptions/${AZURE_SUBSCRIPTION_ID}/resourceGroups/rg-frc-pprodgeneral/providers/Microsoft.ManagedIdentity/userAssignedIdentities/mid-frc-iac\"" "$VALUES_FILE" | xargs)
-ENVIRONMENT_ID=$(yq ".environment.id // \"/subscriptions/${AZURE_SUBSCRIPTION_ID}/resourceGroups/${RESOURCE_GROUP_NAME}/providers/Microsoft.App/managedEnvironments/${AZURE_CONTAINERAPP_ENVIRONMENT_NAME}\"" "$VALUES_FILE" | xargs)
+ENVIRONMENT_ID=$(yq ".environment.id // \"/subscriptions/${AZURE_SUBSCRIPTION_ID}/resourceGroups/${AZURE_RESOURCE_GROUP_NAME}/providers/Microsoft.App/managedEnvironments/${AZURE_CONTAINERAPP_ENVIRONMENT_NAME}\"" "$VALUES_FILE" | xargs)
 INGRESS_EXTERNAL=$(yq '.ingress.external // true' "$VALUES_FILE")
 INGRESS_PORT=$(yq '.ingress.port // 80' "$VALUES_FILE")
-VAULT_NAME=$(yq '.vault.name // "key-frc-legacy"' "$VALUES_FILE")
+VAULT_NAME=$(yq ".vault.name // \"key-frc-${PROJECT_NAME}\"" "$VALUES_FILE")
 VAULT_BASE_URL=$(yq ".vault.base_url // \"https://${VAULT_NAME}.vault.azure.net/secrets\"" "$VALUES_FILE")
 
 SCALE_MIN=$(yq eval ".env.$ENVIRONMENT.autoscaling.min // 1" "$VALUES_FILE")
@@ -131,6 +141,7 @@ SCALE_CONCURRENT=$(yq eval ".env.$ENVIRONMENT.autoscaling.concurrent_requests //
 
 if [ "${DEBUG}" = "true" ]; then
     echo "PROJECT_NAME: $PROJECT_NAME"
+    echo "APPLI_NAME: $APPLI_NAME"
     echo "LOCATION: $LOCATION"
     echo "SHARED_IDENTITY_ID: $SHARED_IDENTITY_ID"
     echo "ENVIRONMENT_ID: $ENVIRONMENT_ID"
@@ -146,7 +157,7 @@ fi
 
 # Créer le fichier de base
 cat > "$OUTPUT_FILE" << EOF
-name: $PROJECT_NAME
+name: $FULL_NAME
 type: Microsoft.App/containerApps
 location: $LOCATION
 identity:
@@ -180,7 +191,7 @@ yq eval '.envVariables[] | select(.secretRef != null) | .secretRef' "$VALUES_FIL
     cat >> /tmp/secrets.yaml << EOF
   - name: "$secret_ref"
     identity: "$SHARED_IDENTITY_ID"
-    keyVaultUrl: "$VAULT_BASE_URL/$secret_ref"
+    keyVaultUrl: "$VAULT_BASE_URL/$FULL_NAME-$secret_ref"
 EOF
 done
 
@@ -194,8 +205,8 @@ yq eval ".env.$ENVIRONMENT.components | to_entries | .[] | .key" "$VALUES_FILE" 
     memory=$(yq eval ".env.$ENVIRONMENT.components.$component_name.resources.memory" "$VALUES_FILE")
     
     yq eval --inplace ".containers += [{
-        \"image\": \"$AZURE_REGISTRY_FQDN/$PROJECT_NAME-$component_name:$IMAGE_TAG\",
-        \"name\": \"$PROJECT_NAME-$component_name\",
+        \"image\": \"$AZURE_REGISTRY_FQDN/$FULL_NAME-$component_name:$IMAGE_TAG\",
+        \"name\": \"$FULL_NAME-$component_name\",
         \"resources\": {
             \"cpu\": \"$cpu\",
             \"memory\": \"$memory\"
@@ -230,7 +241,7 @@ yq eval '.envVariables[] | select(.secretRef != null) | "- name: " + .name + "\n
     fi
 done
 
-# Ajouter des varaibles d'environnement
+# Ajouter des variables d'environnement
 yq eval --inplace '.env += [{"name": "INFRA_ENV", "value": "'"$ENVIRONMENT"'"}]' /tmp/env.yaml
 yq eval --inplace '.env += [{"name": "VERSION", "value": "'"$VERSION"'"}]' /tmp/env.yaml
 

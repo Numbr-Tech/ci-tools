@@ -18,16 +18,6 @@ on:
         required: false
         type: string
         default: '${{ github.sha }}'
-      AZURE_CONTAINERAPP_ENVIRONMENT_FORCE_CREATE:
-        description: 'Force create container app environment'
-        required: false
-        type: boolean
-        default: false
-      DOCKER_FILE_DIRECTORY:
-        description: 'Docker file directory'
-        required: false
-        type: string
-        default: '.'
       DEBUG:
         description: 'Enable debug mode (verbose logs)'
         required: false
@@ -64,7 +54,7 @@ jobs:
         uses: actions/checkout@v4
         with:
           repository: Numbr-Tech/ci-tools
-          ref: v2
+          ref: v3
           path: ci-tools
           token: ${{ secrets.GITHUB_TOKEN }}
 
@@ -76,38 +66,9 @@ jobs:
       - name: Pre-execute - Set environment variables
         id: set-env
         run: |
-          PROJECT_NAME=$(yq '.name' Infra/values.yaml)
-          AZURE_CONTAINERAPP_ENVIRONMENT_NAME=${PROJECT_NAME}-${{ inputs.INFRA_ENV }}-workspace
-          AZURE_RESOURCE_GROUP=$(yq '.resourceGroup.current.name // "rg-frc-legacy"' Infra/values.yaml)
-          AZURE_REGISTRY=${{ inputs.INFRA_ENV == 'production' && 'nbtreg' || 'pprodnbtregistry' }}
-          AZURE_REGISTRY_FQDN=${{ inputs.INFRA_ENV == 'production' && 'nbtreg' || 'pprodnbtregistry-aucgecdkece6b5d7' }}.azurecr.io
           AZURE_SUBSCRIPTION_ID=${{ inputs.INFRA_ENV == 'production' && secrets.AZURE_SUBSCRIPTION_ID_PROD || secrets.AZURE_SUBSCRIPTION_ID_PPROD }}
-          echo "PROJECT_NAME=$PROJECT_NAME" >> $GITHUB_ENV
-          echo "AZURE_CONTAINERAPP_ENVIRONMENT_NAME=$AZURE_CONTAINERAPP_ENVIRONMENT_NAME" >> $GITHUB_ENV
-          echo "AZURE_RESOURCE_GROUP=$AZURE_RESOURCE_GROUP" >> $GITHUB_ENV
-          echo "AZURE_REGISTRY=$AZURE_REGISTRY" >> $GITHUB_ENV
-          echo "AZURE_REGISTRY_FQDN=$AZURE_REGISTRY_FQDN" >> $GITHUB_ENV
           echo "AZURE_SUBSCRIPTION_ID=$AZURE_SUBSCRIPTION_ID" >> $GITHUB_ENV
-          echo "PROJECT_NAME=$PROJECT_NAME" >> $GITHUB_OUTPUT
-          echo "AZURE_CONTAINERAPP_ENVIRONMENT_NAME=$AZURE_CONTAINERAPP_ENVIRONMENT_NAME" >> $GITHUB_OUTPUT
-          echo "AZURE_RESOURCE_GROUP=$AZURE_RESOURCE_GROUP" >> $GITHUB_OUTPUT
-          echo "AZURE_REGISTRY=$AZURE_REGISTRY" >> $GITHUB_OUTPUT
-          echo "AZURE_REGISTRY_FQDN=$AZURE_REGISTRY_FQDN" >> $GITHUB_OUTPUT
           echo "AZURE_SUBSCRIPTION_ID=$AZURE_SUBSCRIPTION_ID" >> $GITHUB_OUTPUT
-
-      - name: Build containerapp.yaml
-        id: build-containerapp-yaml
-        run: |
-          DEBUG_FLAG=$('${{ inputs.DEBUG }}' = 'true' && echo '--debug' || echo '')
-          ci-tools/src/modules/deploy/build-containerapp-yaml.sh \
-            --env ${{ inputs.INFRA_ENV }} \
-            --version ${{ inputs.VERSION }} \
-            --container-app-environment-name ${{ steps.set-env.outputs.AZURE_CONTAINERAPP_ENVIRONMENT_NAME }} \
-            --registry-fqdn ${{ steps.set-env.outputs.AZURE_REGISTRY_FQDN }} \
-            --resource-group ${{ steps.set-env.outputs.AZURE_RESOURCE_GROUP }} \
-            --subscription-id ${{ steps.set-env.outputs.AZURE_SUBSCRIPTION_ID }} \
-            --image-tag ${{ inputs.IMAGE_TAG }} \
-            $DEBUG_FLAG
 
       - name: Login to Azure
         uses: azure/login@v2
@@ -117,66 +78,14 @@ jobs:
           subscription-id: ${{ steps.set-env.outputs.AZURE_SUBSCRIPTION_ID }}
 
       - name: Log in to Azure Container Registry
-        run: az acr login --name ${{ steps.set-env.outputs.AZURE_REGISTRY }}
+        run: az acr login --name ${{ inputs.INFRA_ENV == 'production' && 'nbtreg' || 'pprodnbtregistry' }}
 
-      - name: Build and Push Docker image
+      - name: deploy
         run: |
-          # Get the number of containers
-          CONTAINER_COUNT=$(yq '.template.containers | length' Infra/containerapp.yaml)
-          
-          # Loop through each container by index
-          for i in $(seq 0 $((CONTAINER_COUNT - 1))); do
-            NAME=$(yq ".template.containers[$i].name" Infra/containerapp.yaml | sed "s/${{ steps.set-env.outputs.PROJECT_NAME }}-//")
-            IMAGE_PATH=$(yq ".template.containers[$i].image" Infra/containerapp.yaml)
-            if [ '${{ inputs.DEBUG }}' = 'true' ]; then
-              echo "Building and pushing container '$NAME' with image path '$IMAGE_PATH'"
-            fi
-            docker build -t ${IMAGE_PATH} -f ${{ inputs.DOCKER_FILE_DIRECTORY }}/Dockerfile-${NAME} ${{ inputs.DOCKER_FILE_DIRECTORY }} ${{ inputs.debug == 'true' && '' || '--quiet' }}
-            docker push ${IMAGE_PATH}
-          done
-
-      - name: Create Container App Environment if missing
-        run: |
-          AZURE_CONTAINERAPP_ENVIRONMENT_NAME=${{ steps.set-env.outputs.AZURE_CONTAINERAPP_ENVIRONMENT_NAME }}
-          AZURE_LOCATION=$(yq '.location' Infra/values.yaml)
-          AZURE_VNET_NAME=$(yq '.vnet.name' Infra/values.yaml)
-          AZURE_SUBNET_NAME=$(yq '.vnet.subnet.name' Infra/values.yaml)
-          AZURE_CONTAINERAPP_ENVIRONMENT_INTERNAL_ONLY=$(yq '.appEnv.internalOnly // false' Infra/values.yaml)
-          if [ "${{ inputs.AZURE_CONTAINERAPP_ENVIRONMENT_FORCE_CREATE }}" = "false" ] && az containerapp env show \
-            --name "${AZURE_CONTAINERAPP_ENVIRONMENT_NAME}" \
-            --resource-group "${{ steps.set-env.outputs.AZURE_RESOURCE_GROUP }}" \
-            --query "name" \
-            --only-show-errors > /dev/null 2>&1; then
-            echo "✅ Container App environment '${AZURE_CONTAINERAPP_ENVIRONMENT_NAME}' already exists"
-          else
-            echo "🏗️ Creating Container App environment '${AZURE_CONTAINERAPP_ENVIRONMENT_NAME}'..."
-            AZURE_INFRASUBNET_RESOURCE_ID=""
-            if [ -n "${AZURE_VNET_NAME}" ] && [ -n "${AZURE_SUBNET_NAME}" ]
-            then
-              AZURE_INFRASUBNET_RESOURCE_ID="/subscriptions/${{ steps.set-env.outputs.AZURE_SUBSCRIPTION_ID }}/resourceGroups/${{ steps.set-env.outputs.AZURE_RESOURCE_GROUP }}/providers/Microsoft.Network/virtualNetworks/${AZURE_VNET_NAME}/subnets/${AZURE_SUBNET_NAME}"
-            fi
-            if [ -n "${AZURE_INFRASUBNET_RESOURCE_ID}" ]; then
-              az containerapp env create \
-                  --name "${AZURE_CONTAINERAPP_ENVIRONMENT_NAME}" \
-                  --resource-group "${{ steps.set-env.outputs.AZURE_RESOURCE_GROUP }}" \
-                  --location "${AZURE_LOCATION}" \
-                  --internal-only ${AZURE_CONTAINERAPP_ENVIRONMENT_INTERNAL_ONLY} \
-                  --infrastructure-subnet-resource-id "${AZURE_INFRASUBNET_RESOURCE_ID}"
-            else
-              az containerapp env create \
-                  --name "${AZURE_CONTAINERAPP_ENVIRONMENT_NAME}" \
-                  --resource-group "${{ steps.set-env.outputs.AZURE_RESOURCE_GROUP }}" \
-                  --location "${AZURE_LOCATION}" \
-                  --internal-only ${AZURE_CONTAINERAPP_ENVIRONMENT_INTERNAL_ONLY}
-            fi
-            echo "✅ Container App environment created successfully"
-          fi
-
-      - name: Deploy Container App
-        id: deploy-container-app
-        uses: azure/container-apps-deploy-action@v2
-        with:
-          azureCredentials: ${{ secrets.AZURE_CREDENTIALS }}
-          containerAppName: ${{ steps.set-env.outputs.PROJECT_NAME }}
-          resourceGroup: ${{ steps.set-env.outputs.AZURE_RESOURCE_GROUP }}
-          yamlConfigPath: ./Infra/containerapp.yaml
+          DEBUG_FLAG=$('${{ inputs.DEBUG }}' = 'true' && echo '--debug' || echo '')
+          ./ci-tools/src/modules/deploy/azure-containerapp-build.sh \
+            --env ${{ inputs.INFRA_ENV }} \
+            --subscription-id ${{ steps.set-env.outputs.AZURE_SUBSCRIPTION_ID }} \
+            --version ${{ inputs.VERSION }} \
+            --image-tag ${{ inputs.IMAGE_TAG }} \
+            $DEBUG_FLAG
