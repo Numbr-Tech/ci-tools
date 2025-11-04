@@ -62,7 +62,7 @@
 
    jobs:
        deploy:
-           uses: Numbr-Tech/ci-tools/.github/workflows/_templates-deploy-simple.yml@v2
+           uses: Numbr-Tech/ci-tools/.github/workflows/_templates-deploy-simple.yml@v3
            secrets: inherit
    ```
 
