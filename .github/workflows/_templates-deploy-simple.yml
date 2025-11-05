@@ -4,10 +4,10 @@ on:
   workflow_call:
     inputs:
       INFRA_ENV:
-        description: 'Infra environment'
+        description: 'Infrastructure environment'
         required: false
         type: string
-        default: "${{ github.ref_name == 'main' && 'production' || 'staging' }}"
+        default: "${{ github.ref_name == 'main' && 'prod' || 'staging' }}"
       IMAGE_TAG:
         description: 'Image tag'
         required: false
@@ -40,7 +40,7 @@ on:
 jobs:
   deploy:
     runs-on: ubuntu-latest
-    environment: ${{ github.ref_name == 'main' && 'production' || 'staging' }}
+    environment: ${{ inputs.INFRA_ENV == 'main' && 'prod' || 'pprod' }}
     permissions:
       id-token: write
       contents: read
@@ -66,7 +66,7 @@ jobs:
       - name: Pre-execute - Set environment variables
         id: set-env
         run: |
-          AZURE_SUBSCRIPTION_ID=${{ inputs.INFRA_ENV == 'production' && secrets.AZURE_SUBSCRIPTION_ID_PROD || secrets.AZURE_SUBSCRIPTION_ID_PPROD }}
+          AZURE_SUBSCRIPTION_ID=${{ inputs.INFRA_ENV == 'prod' && secrets.AZURE_SUBSCRIPTION_ID_PROD || secrets.AZURE_SUBSCRIPTION_ID_PPROD }}
           echo "AZURE_SUBSCRIPTION_ID=$AZURE_SUBSCRIPTION_ID" >> $GITHUB_ENV
           echo "AZURE_SUBSCRIPTION_ID=$AZURE_SUBSCRIPTION_ID" >> $GITHUB_OUTPUT
 

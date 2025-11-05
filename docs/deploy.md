@@ -5,15 +5,16 @@
 2. Créer un fichier Infra/values.yaml afin de spécifier vos resources Azure.
 
     ```yaml
-    name: "hiive-api"
+    project: "hiive"
+    appli: "api"
     #location: "francecentral"
     #vnet:
-    #  name: "vnet-frc-hiive-api"
+    #  name: "vnet-frc-<sub-name>-<project>-<appli>"
     #  subnet:
     #    name: "subnet-app"
     #resourceGroup:
     #  current:
-    #    name: "rg-frc-hiive"
+    #    name: "rg-frc-<project>"
     #  shared:
     #    name: "rg-frc-pprodgeneral"
     #appEnv:
@@ -22,14 +23,14 @@
     #  port: 80
     #  external: true
     #vault:
-    #  name: "key-frc-hiive"
+    #  name: "key-frc-<sub-name>-<project>"
     envVariables:
       - name: MY_VAR
         value: "foo"
       - name: MY_VAR_FROM_VAULT
         secretRef: my-secret
     env:
-      production:
+      prod:
     #    autoscaling:
     #      min: '3'
     #      max: '10'
