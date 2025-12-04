@@ -167,6 +167,9 @@ identity:
 properties:
   environmentId: $ENVIRONMENT_ID
   configuration:
+    extensions:
+      azureMonitor:
+        enabled: true
     ingress:
       allowInsecure: false
       external: $INGRESS_EXTERNAL
