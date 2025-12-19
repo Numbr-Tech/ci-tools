@@ -77,9 +77,6 @@ jobs:
           tenant-id: ${{ secrets.AZURE_TENANT_ID }}
           subscription-id: ${{ steps.set-env.outputs.AZURE_SUBSCRIPTION_ID }}
 
-      - name: Log in to Azure Container Registry
-        run: az acr login --name ${{ inputs.INFRA_ENV == 'production' && 'nbtreg' || 'pprodnbtregistry' }}
-
       - name: deploy
         run: |
           DEBUG_FLAG=$('${{ inputs.DEBUG }}' = 'true' && echo '--debug' || echo '')

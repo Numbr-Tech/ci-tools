@@ -147,13 +147,9 @@ function echo_title() {
 }
 
 function check_image_exists() {
-    # @todo fix it
-    return 1
-
     local image_path="$1"
     local registry_name="$2"
     
-    # Extraire le nom du registry et le repository/tag de l'image
     local image_without_registry="${image_path#*/}"
     local repository="${image_without_registry%:*}"
     local tag="${image_without_registry##*:}"
@@ -164,9 +160,7 @@ function check_image_exists() {
         --repository "$repository" \
         --query "[?name=='$tag']" \
         --output tsv; 
-        #pprodnbtregistry
 
-    # Vérifier si l'image existe dans le registry Azure
     return $?
 }
 
@@ -189,10 +183,13 @@ run_command ${DIR}/containerapp-yaml-build.sh \
   --output-file ${YAML_CONFIG_PATH} \
   $DEBUG_FLAG
 
-
 ######################
 # Build docker image
 ######################
+echo_title "Log in to Azure Container Registry"
+DEBUG_FLAG=$([ "$DEBUG" = 'true' ] && echo '--debug' || echo '--only-show-errors')
+run_command az acr login --name ${AZURE_REGISTRY_NAME} $DEBUG_FLAG
+
 FULL_NAME=$(yq '.name' Infra/containerapp.yaml)
 CONTAINER_COUNT=$(yq '.template.containers | length' Infra/containerapp.yaml)
 
