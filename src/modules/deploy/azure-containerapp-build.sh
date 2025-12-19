@@ -158,8 +158,8 @@ function check_image_exists() {
     run_command az acr repository show-tags \
         --name "${registry_name}" \
         --repository "$repository" \
-        --query "[?name=='$tag']" \
-        --output tsv; 
+        --output tsv \
+        | grep "$tag";
 
     return $?
 }
