@@ -76,10 +76,6 @@ while [[ $# -gt 0 ]]; do
     esac
 done
 
-if [ -z "$VERSION" ]; then
-    VERSION=$IMAGE_TAG
-fi
-
 if [ -z "$AZURE_SUBSCRIPTION_ID" ]; then
     echo "Erreur: L'ID de la subscription Azure n'est pas spécifié"
     show_help
@@ -206,7 +202,11 @@ yq eval --null-input '.containers = []' > /tmp/containers.yaml
 yq eval ".env.$ENVIRONMENT.components | to_entries | .[] | .key" "$VALUES_FILE" | while read -r component_name; do
     cpu=$(yq eval ".env.$ENVIRONMENT.components.$component_name.resources.cpu" "$VALUES_FILE")
     memory=$(yq eval ".env.$ENVIRONMENT.components.$component_name.resources.memory" "$VALUES_FILE")
-    
+
+    if [ -z "$IMAGE_TAG" ]; then
+      IMAGE_TAG=$(shasum "Dockerfile-$component_name" | awk '{print $1}')
+    fi
+
     yq eval --inplace ".containers += [{
         \"image\": \"$AZURE_REGISTRY_FQDN/$FULL_NAME-$component_name:$IMAGE_TAG\",
         \"name\": \"$FULL_NAME-$component_name\",
