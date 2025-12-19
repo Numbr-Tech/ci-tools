@@ -123,12 +123,14 @@ fi
 PROJECT_NAME=$(yq ".project" "$VALUES_FILE")
 APPLI_NAME=$(yq ".appli" "$VALUES_FILE")
 FULL_NAME=${ENVIRONMENT}-${PROJECT_NAME}-${APPLI_NAME}
+AZURE_SUBSCRIPTION_NAME=$([ "$ENVIRONMENT" = "prod" ] && echo "prod" || echo "pprod")
 LOCATION=$(yq ".location // \"francecentral\"" "$VALUES_FILE")
-SHARED_IDENTITY_ID=$(yq ".identity.url // \"/subscriptions/${AZURE_SUBSCRIPTION_ID}/resourceGroups/rg-frc-pprodgeneral/providers/Microsoft.ManagedIdentity/userAssignedIdentities/mid-frc-iac\"" "$VALUES_FILE" | xargs)
+AZURE_RESOURCE_GROUP_SHARE_NAME=$([ "$ENVIRONMENT" = "prod" ] && echo "rg-frc-swpshared" || echo "rg-frc-pprodgeneral")
+SHARED_IDENTITY_ID=$(yq ".identity.url // \"/subscriptions/${AZURE_SUBSCRIPTION_ID}/resourceGroups/${AZURE_RESOURCE_GROUP_SHARE_NAME}/providers/Microsoft.ManagedIdentity/userAssignedIdentities/mid-frc-iac\"" "$VALUES_FILE" | xargs)
 ENVIRONMENT_ID=$(yq ".environment.id // \"/subscriptions/${AZURE_SUBSCRIPTION_ID}/resourceGroups/${AZURE_RESOURCE_GROUP_NAME}/providers/Microsoft.App/managedEnvironments/${AZURE_CONTAINERAPP_ENVIRONMENT_NAME}\"" "$VALUES_FILE" | xargs)
 INGRESS_EXTERNAL=$(yq '.ingress.external // true' "$VALUES_FILE")
 INGRESS_PORT=$(yq '.ingress.port // 80' "$VALUES_FILE")
-VAULT_NAME=$(yq ".vault.name // \"key-frc-${PROJECT_NAME}\"" "$VALUES_FILE")
+VAULT_NAME=$(yq ".vault.name // \"key-frc-${AZURE_SUBSCRIPTION_NAME}-${PROJECT_NAME}\"" "$VALUES_FILE")
 VAULT_BASE_URL=$(yq ".vault.base_url // \"https://${VAULT_NAME}.vault.azure.net/secrets\"" "$VALUES_FILE")
 
 SCALE_MIN=$(yq eval ".env.$ENVIRONMENT.autoscaling.min // 1" "$VALUES_FILE")
@@ -250,6 +252,15 @@ yq eval --inplace '.env += [{"name": "VERSION", "value": "'"$VERSION"'"}]' /tmp/
 
 # Injecter les variables d'environnement
 yq eval --inplace 'load("/tmp/env.yaml") as $env | .template.containers[].env = $env.env' "$OUTPUT_FILE"
+
+# Remplacer {{subscription-name}} (compatible macOS et Linux)
+if [[ "$OSTYPE" == "darwin"* ]]; then
+    sed -i '' "s/{{subscription-name}}/${AZURE_SUBSCRIPTION_NAME}/g" "$OUTPUT_FILE"
+    sed -i '' "s/{{env}}/${ENVIRONMENT}/g" "$OUTPUT_FILE"
+else
+    sed -i "s/{{subscription-name}}/${AZURE_SUBSCRIPTION_NAME}/g" "$OUTPUT_FILE"
+    sed -i "s/{{env}}/${ENVIRONMENT}/g" "$OUTPUT_FILE"
+fi
 
 # Nettoyer
 rm -f /tmp/secrets.yaml /tmp/containers.yaml /tmp/env.yaml

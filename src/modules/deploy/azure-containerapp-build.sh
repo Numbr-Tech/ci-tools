@@ -76,8 +76,8 @@ VALUES_FILE="./Infra/values.yaml"
 YAML_CONFIG_PATH='./Infra/containerapp.yaml'
 PROJECT_NAME=$(yq '.project' "${VALUES_FILE}")
 APPLI_NAME=$(yq '.appli' "${VALUES_FILE}")
-AZURE_REGISTRY_NAME=$([ "$ENVIRONMENT" = "production" ] && echo "nbtreg" || echo "pprodnbtregistry")
-AZURE_REGISTRY_FQDN=$([ "$ENVIRONMENT" = "production" ] && echo "nbtreg.azurecr.io" || echo "pprodnbtregistry-aucgecdkece6b5d7.azurecr.io")
+AZURE_REGISTRY_NAME=$([ "$ENVIRONMENT" = "prod" ] && echo "nbtreg" || echo "pprodnbtregistry")
+AZURE_REGISTRY_FQDN=$([ "$ENVIRONMENT" = "prod" ] && echo "nbtreg.azurecr.io" || echo "pprodnbtregistry-aucgecdkece6b5d7.azurecr.io")
 AZURE_CONTAINERAPP_ENVIRONMENT_NAME=${ENVIRONMENT}-${PROJECT_NAME} \
 AZURE_LOCATION=$(yq ".location // \"francecentral\"" "${VALUES_FILE}")
 AZURE_VNET_NAME=$(yq '.vnet.name // ""' "${VALUES_FILE}")
@@ -158,8 +158,8 @@ function check_image_exists() {
     run_command az acr repository show-tags \
         --name "${registry_name}" \
         --repository "$repository" \
-        --query "[?name=='$tag']" \
-        --output tsv; 
+        --output tsv \
+        | grep "$tag";
 
     return $?
 }
@@ -223,7 +223,7 @@ then
   if [ "${AZURE_VNET_ENABLED}" = "true" ]
   then
     AZURE_VNET_NAME="${AZURE_VNET_NAME:-vnet-frc-${ENVIRONMENT}-${PROJECT_NAME}}"
-    AZURE_SUBNET_NAME="${AZURE_SUBNET_NAME:-subnet-${FULL_NAME}}"
+    AZURE_SUBNET_NAME="${AZURE_SUBNET_NAME:-subnet-${PROJECT_NAME}-${APPLI_NAME}}"
   
     VNET_OPTION=("--infrastructure-subnet-resource-id" "/subscriptions/${AZURE_SUBSCRIPTION_ID}/resourceGroups/${AZURE_RESOURCE_GROUP_NAME}/providers/Microsoft.Network/virtualNetworks/${AZURE_VNET_NAME}/subnets/${AZURE_SUBNET_NAME}")
   fi
