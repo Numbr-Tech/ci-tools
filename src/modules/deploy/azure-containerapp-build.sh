@@ -8,13 +8,12 @@ show_help() {
     echo "Options:"
     echo "  --env              Spécifier l'environnement"
     echo "  --subscription-id  Spécifier l'ID de la subscription Azure"
-    echo "  --image-tag        Spécifier le tag de l'image Docker (défaut: latest)"
-    echo "  --version          Spécifier la version (défaut: image-tag)"
+    echo "  --version          Spécifier la version"
     echo "  --debug            Activer le mode debug"
     echo "  -h, --help         Afficher cette aide"
     echo ""
     echo "Exemples:"
-    echo "  $0 --env staging --image-tag v1.2.3 --image-tag latest --version v2.0.0 --debug"
+    echo "  $0 --env staging --version v2.0.0 --debug"
 }
 
 while [[ $# -gt 0 ]]; do
@@ -29,10 +28,6 @@ while [[ $# -gt 0 ]]; do
             ;;
         --version)
             VERSION="$2"
-            shift 2
-            ;;
-        --image-tag)
-            IMAGE_TAG="$2"
             shift 2
             ;;
         --debug)
@@ -54,10 +49,6 @@ while [[ $# -gt 0 ]]; do
             ;;
     esac
 done
-
-if [ -z "$VERSION" ]; then
-    VERSION=$IMAGE_TAG
-fi
 
 if [ -z "$AZURE_SUBSCRIPTION_ID" ]; then
     echo -e "${RED}❌ Erreur: L'ID de la subscription Azure n'est pas spécifié${NC}"
@@ -178,7 +169,6 @@ run_command ${DIR}/containerapp-yaml-build.sh \
   --registry-fqdn ${AZURE_REGISTRY_FQDN} \
   --resource-group ${AZURE_RESOURCE_GROUP_NAME} \
   --subscription-id ${AZURE_SUBSCRIPTION_ID} \
-  --image-tag ${IMAGE_TAG} \
   --values-file ${VALUES_FILE} \
   --output-file ${YAML_CONFIG_PATH} \
   $DEBUG_FLAG
