@@ -8,11 +8,6 @@ on:
         required: false
         type: string
         default: "${{ github.ref_name == 'main' && 'prod' || 'staging' }}"
-      IMAGE_TAG:
-        description: 'Image tag'
-        required: false
-        type: string
-        default: '${{ github.sha }}'
       VERSION:
         description: 'Version'
         required: false
@@ -84,5 +79,4 @@ jobs:
             --env ${{ inputs.INFRA_ENV }} \
             --subscription-id ${{ steps.set-env.outputs.AZURE_SUBSCRIPTION_ID }} \
             --version ${{ inputs.VERSION }} \
-            --image-tag ${{ inputs.IMAGE_TAG }} \
             $DEBUG_FLAG

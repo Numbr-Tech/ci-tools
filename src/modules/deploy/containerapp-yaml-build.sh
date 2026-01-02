@@ -11,15 +11,14 @@ show_help() {
     echo "  --registry-fqdn    Spécifier le FQDN du registre Azure"
     echo "  --subscription-id  Spécifier l'ID de la subscription Azure"
     echo "  --resource-group   Spécifier le nom du groupe de ressources"
-    echo "  --image-tag        Spécifier le tag de l'image Docker (défaut: latest)"
-    echo "  --version          Spécifier la version (défaut: image-tag)"
+    echo "  --version          Spécifier la version"
     echo "  --values-file      Spécifier le chemin du fichier de value (défaut: ./Infra/values.yaml)"
     echo "  --output-file      Spécifier le chemin du fichier yaml de sortie (défaut: ./Infra/containerapp.yaml)"
     echo "  --debug            Activer le mode debug"
     echo "  -h, --help         Afficher cette aide"
     echo ""
     echo "Exemples:"
-    echo "  $0 --registry-fqdn myreg.azurecr.io --env staging --container-app-environment-name giwb-api-staging --image-tag v1.2.3 --image-tag latest --version v2.0.0 --debug"
+    echo "  $0 --registry-fqdn myreg.azurecr.io --env staging --container-app-environment-name giwb-api-staging --version v2.0.0 --debug"
 }
 
 while [[ $# -gt 0 ]]; do
@@ -46,10 +45,6 @@ while [[ $# -gt 0 ]]; do
             ;;
         --version)
             VERSION="$2"
-            shift 2
-            ;;
-        --image-tag)
-            IMAGE_TAG="$2"
             shift 2
             ;;
         --output-file)
@@ -205,9 +200,7 @@ yq eval ".env.$ENVIRONMENT.components | to_entries | .[] | .key" "$VALUES_FILE" 
     cpu=$(yq eval ".env.$ENVIRONMENT.components.$component_name.resources.cpu" "$VALUES_FILE")
     memory=$(yq eval ".env.$ENVIRONMENT.components.$component_name.resources.memory" "$VALUES_FILE")
 
-    if [ -z "$IMAGE_TAG" ]; then
-      IMAGE_TAG=$(shasum "Dockerfile-$component_name" | awk '{print $1}')
-    fi
+    IMAGE_TAG=$(shasum "Dockerfile-$component_name" | awk '{print $1}')
 
     yq eval --inplace ".containers += [{
         \"image\": \"$AZURE_REGISTRY_FQDN/$FULL_NAME-$component_name:$IMAGE_TAG\",
