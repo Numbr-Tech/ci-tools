@@ -23,6 +23,16 @@ on:
         required: false
         type: boolean
         default: false
+      ARTIFACT_NAME:
+        description: 'Name of the artifact to download from previous job (e.g., vendor, node_modules, build)'
+        required: false
+        type: string
+        default: ''
+      ARTIFACT_PATH:
+        description: 'Path where the artifact should be extracted (e.g., vendor/, node_modules/, dist/)'
+        required: false
+        type: string
+        default: ''
     secrets:
       AZURE_CLIENT_ID:
         description: 'GitHub App private key'
@@ -57,6 +67,13 @@ jobs:
           ref: v3
           path: ci-tools
           token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Download artifact from previous job
+        if: inputs.ARTIFACT_NAME != '' && inputs.ARTIFACT_PATH != ''
+        uses: actions/download-artifact@v4
+        with:
+          name: ${{ inputs.ARTIFACT_NAME }}
+          path: ${{ inputs.ARTIFACT_PATH }}
 
       - name: Install dependencies
         run: |
