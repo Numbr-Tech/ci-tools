@@ -210,8 +210,7 @@ yq eval ".env.$ENVIRONMENT.components | to_entries | .[] | .key" "$VALUES_FILE" 
     yq eval ".env.$ENVIRONMENT.components.$component_name" "$VALUES_FILE" > /tmp/component.yaml
     
     image_name=$(yq eval ".env.$ENVIRONMENT.components.$component_name.image_name" "$VALUES_FILE")
-    image_name=$([ -e $$image_name ] && echo $image_name || echo $component_name)
-    
+    image_name=$([ "$image_name" != "null" ] && echo $image_name || echo $component_name)
     # Supprimer image_name du component (ne doit pas apparaître dans le containerapp.yaml)
     yq eval --inplace "del(.image_name)" /tmp/component.yaml
     
