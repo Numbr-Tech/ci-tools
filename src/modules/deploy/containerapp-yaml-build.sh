@@ -206,17 +206,22 @@ yq eval --inplace 'load("/tmp/secrets.yaml") as $secrets | .properties.configura
 # Créer les conteneurs
 yq eval --null-input '.containers = []' > /tmp/containers.yaml
 yq eval ".env.$ENVIRONMENT.components | to_entries | .[] | .key" "$VALUES_FILE" | while read -r component_name; do
-    cpu=$(yq eval ".env.$ENVIRONMENT.components.$component_name.resources.cpu" "$VALUES_FILE")
-    memory=$(yq eval ".env.$ENVIRONMENT.components.$component_name.resources.memory" "$VALUES_FILE")
-
-    yq eval --inplace ".containers += [{
-        \"image\": \"$AZURE_REGISTRY_FQDN/$FULL_NAME-$component_name:$IMAGE_TAG\",
+    # Récupérer les valeurs initiales du composant
+    yq eval ".env.$ENVIRONMENT.components.$component_name" "$VALUES_FILE" > /tmp/component.yaml
+    
+    image_name=$(yq eval ".env.$ENVIRONMENT.components.$component_name.image_name" "$VALUES_FILE")
+    image_name=$([ -e $$image_name ] && echo $image_name || echo $component_name)
+    
+    # Supprimer image_name du component (ne doit pas apparaître dans le containerapp.yaml)
+    yq eval --inplace "del(.image_name)" /tmp/component.yaml
+    
+    # Créer l'objet avec name et image en premier, puis fusionner les autres propriétés
+    yq eval --null-input "{
         \"name\": \"$FULL_NAME-$component_name\",
-        \"resources\": {
-            \"cpu\": \"$cpu\",
-            \"memory\": \"$memory\"
-        }
-    }]" /tmp/containers.yaml
+        \"image\": \"$AZURE_REGISTRY_FQDN/$FULL_NAME-$image_name:$IMAGE_TAG\"
+    } * load(\"/tmp/component.yaml\")" > /tmp/container_merged.yaml
+    
+    yq eval --inplace ".containers += [load(\"/tmp/container_merged.yaml\")]" /tmp/containers.yaml
 done
 
 # Injecter les conteneurs
