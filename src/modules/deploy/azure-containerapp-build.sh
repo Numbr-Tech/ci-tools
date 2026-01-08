@@ -76,8 +76,10 @@ VALUES_FILE="./Infra/values.yaml"
 YAML_CONFIG_PATH='./Infra/containerapp.yaml'
 PROJECT_NAME=$(yq '.project' "${VALUES_FILE}")
 APPLI_NAME=$(yq '.appli' "${VALUES_FILE}")
-AZURE_REGISTRY_NAME=$([ "$ENVIRONMENT" = "prod" ] && echo "nbtreg" || echo "pprodnbtregistry")
-AZURE_REGISTRY_FQDN=$([ "$ENVIRONMENT" = "prod" ] && echo "nbtreg.azurecr.io" || echo "pprodnbtregistry-aucgecdkece6b5d7.azurecr.io")
+AZURE_REGISTRY_PROD_NAME="nbtreg"
+AZURE_REGISTRY_FQDN_PROD="$AZURE_REGISTRY_PROD_NAME.azurecr.io"
+AZURE_REGISTRY_NAME=$([ "$ENVIRONMENT" = "prod" ] && echo "$AZURE_REGISTRY_PROD_NAME" || echo "pprodnbtregistry")
+AZURE_REGISTRY_FQDN=$([ "$ENVIRONMENT" = "prod" ] && echo "$AZURE_REGISTRY_FQDN_PROD" || echo "$AZURE_REGISTRY_NAME-aucgecdkece6b5d7.azurecr.io")
 AZURE_CONTAINERAPP_ENVIRONMENT_NAME=${ENVIRONMENT}-${PROJECT_NAME} \
 AZURE_LOCATION=$(yq ".location // \"francecentral\"" "${VALUES_FILE}")
 AZURE_VNET_NAME=$(yq '.vnet.name // ""' "${VALUES_FILE}")
@@ -146,6 +148,7 @@ function echo_title() {
     echo -e "${YELLOW}================================================================================${NC}\n"
 }
 
+
 function check_image_exists() {
     local image_path="$1"
     local registry_name="$2"
@@ -205,7 +208,11 @@ for i in $(seq 0 $((CONTAINER_COUNT - 1))); do
   else
     echo -e "    ${YELLOW}🔨${NC} ${BOLD}Image not found, building and pushing container:${NC} ${WHITE}'$NAME'${NC}"
     QUIET_FLAG=$([ "$DEBUG" = 'true' ] && echo '' || echo '--quiet')
-    run_command docker build -t "$IMAGE_PATH" -f "$DOCKER_FILE_DIRECTORY/Dockerfile-$NAME" "$DOCKER_FILE_DIRECTORY" $QUIET_FLAG
+    DOCKER_FILE="Dockerfile-$NAME"
+    if [ "$AZURE_REGISTRY_FQDN" != "$AZURE_REGISTRY_FQDN_PROD" ]; then
+      sed -i "s;FROM $AZURE_REGISTRY_FQDN_PROD/;FROM $AZURE_REGISTRY_FQDN/;g" $DOCKER_FILE
+    fi
+    run_command docker build -t "$IMAGE_PATH" -f "$DOCKER_FILE_DIRECTORY/$DOCKER_FILE" "$DOCKER_FILE_DIRECTORY" $QUIET_FLAG
     run_command docker push $IMAGE_PATH $QUIET_FLAG
   fi
 done
